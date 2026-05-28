@@ -796,6 +796,72 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
     const [loading, setLoading] = React.useState(false);
     const [auditData, setAuditData] = React.useState<any>(null);
     const [editingItem, setEditingItem] = React.useState<{ type: string, index: number, data: any } | null>(null);
+    const [conversationHistory, setConversationHistory] = React.useState<any[]>([]);
+    const [feedbackInput, setFeedbackInput] = React.useState("");
+    const [feedbackLoading, setFeedbackLoading] = React.useState(false);
+    const [feedbackInstructions, setFeedbackInstructions] = React.useState<string[]>([]);
+
+    const runFeedbackAdjustment = async () => {
+        const instruction = feedbackInput.trim();
+        if (!instruction) return;
+
+        const apiBaseUrl = plugin.settings.apiBaseUrl.trim();
+        if (!apiBaseUrl) {
+            new Notice("错误：请先在插件设置中配置 API Base URL！");
+            return;
+        }
+
+        setFeedbackLoading(true);
+        try {
+            const userFeedbackMsg = {
+                role: "user",
+                content: `请对上述提取的 JSON 方案进行如下修改反馈：\n"${instruction}"\n\n请分析用户的修改意图，对已有的 JSON 方案进行修改，并再次以完整的 JSON 格式输出修改后的方案。请务必保持与原格式一致，且只输出 JSON 字符，不要输出任何 MarkDown 标记或多余的解释。`
+            };
+            const nextHistory = [...conversationHistory, userFeedbackMsg];
+
+            const url = apiBaseUrl.endsWith("/chat/completions") 
+                ? apiBaseUrl 
+                : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json"
+            };
+            if (plugin.settings.apiKey) {
+                headers.Authorization = `Bearer ${plugin.settings.apiKey}`;
+            }
+
+            const response = await requestUrl({
+                url: url,
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                    model: plugin.settings.model,
+                    messages: nextHistory,
+                    temperature: 0.2
+                })
+            });
+
+            if (response.status !== 200) {
+                throw new Error(response.text);
+            }
+
+            const aiContent = response.json?.choices?.[0]?.message?.content;
+            const parsed = extractJsonObject(aiContent);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                throw new Error("AI 响应 JSON 不是有效的归档对象。");
+            }
+
+            setAuditData(parsed);
+            setConversationHistory([...nextHistory, { role: "assistant", content: aiContent }]);
+            setFeedbackInstructions(prev => [...prev, instruction]);
+            setFeedbackInput("");
+            new Notice("✨ AI 已根据您的反馈成功调整方案！");
+
+        } catch (e) {
+            console.error(e);
+            new Notice("AI 调整失败，请尝试重新描述您的修改指令: " + String(e));
+        }
+        setFeedbackLoading(false);
+    };
 
     const handleDeleteItem = (listType: string, index: number) => {
         setAuditData((prev: any) => {
@@ -944,7 +1010,13 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                 throw new Error("AI 响应 JSON 不是有效的归档对象。");
             }
 
+            const initialHistory = [
+                { role: "system", content: plugin.settings.promptTemplate },
+                { role: "user", content: "请分析以下日记内容，并严格按照 JSON 格式输出拟归档方案：\n" + combinedContent }
+            ];
             setAuditData(parsed);
+            setConversationHistory([...initialHistory, { role: "assistant", content: aiContent }]);
+            setFeedbackInstructions([]);
             new Notice("✨ AI 分析完成！请审核。");
 
         } catch (e) {
@@ -1270,6 +1342,44 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+
+                {/* 💬 让 AI 调整方案 (多轮对话反馈) */}
+                <div className="prm-audit-feedback-section">
+                    <div className="prm-feedback-section-title">
+                        <span>💬 让 AI 调整方案 (多轮对话反馈)</span>
+                    </div>
+                    {feedbackInstructions.length > 0 && (
+                        <div className="prm-feedback-history-list">
+                            {feedbackInstructions.map((inst, idx) => (
+                                <div key={idx} className="prm-feedback-history-item">
+                                    <span className="prm-feedback-history-bullet">✓</span> 已执行：{inst}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="prm-feedback-input-row">
+                        <input 
+                            type="text" 
+                            value={feedbackInput} 
+                            onChange={(e) => setFeedbackInput(e.target.value)} 
+                            placeholder="输入修改指令（如：把陈静改为合作伙伴，添加李娜...）"
+                            disabled={feedbackLoading}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !feedbackLoading && feedbackInput.trim()) {
+                                    runFeedbackAdjustment();
+                                }
+                            }}
+                        />
+                        <button 
+                            className="prm-btn-primary prm-btn-feedback-send" 
+                            onClick={runFeedbackAdjustment}
+                            disabled={feedbackLoading || !feedbackInput.trim()}
+                            style={{ width: "auto", minWidth: "70px", height: "32px", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                            {feedbackLoading ? "处理中..." : "发送"}
+                        </button>
                     </div>
                 </div>
 

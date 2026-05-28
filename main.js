@@ -35823,6 +35823,65 @@ var PRMAIArchiver = ({ app, plugin }) => {
   const [loading, setLoading] = React.useState(false);
   const [auditData, setAuditData] = React.useState(null);
   const [editingItem, setEditingItem] = React.useState(null);
+  const [conversationHistory, setConversationHistory] = React.useState([]);
+  const [feedbackInput, setFeedbackInput] = React.useState("");
+  const [feedbackLoading, setFeedbackLoading] = React.useState(false);
+  const [feedbackInstructions, setFeedbackInstructions] = React.useState([]);
+  const runFeedbackAdjustment = async () => {
+    const instruction = feedbackInput.trim();
+    if (!instruction)
+      return;
+    const apiBaseUrl = plugin.settings.apiBaseUrl.trim();
+    if (!apiBaseUrl) {
+      new import_obsidian.Notice("\u9519\u8BEF\uFF1A\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u914D\u7F6E API Base URL\uFF01");
+      return;
+    }
+    setFeedbackLoading(true);
+    try {
+      const userFeedbackMsg = {
+        role: "user",
+        content: `\u8BF7\u5BF9\u4E0A\u8FF0\u63D0\u53D6\u7684 JSON \u65B9\u6848\u8FDB\u884C\u5982\u4E0B\u4FEE\u6539\u53CD\u9988\uFF1A
+"${instruction}"
+
+\u8BF7\u5206\u6790\u7528\u6237\u7684\u4FEE\u6539\u610F\u56FE\uFF0C\u5BF9\u5DF2\u6709\u7684 JSON \u65B9\u6848\u8FDB\u884C\u4FEE\u6539\uFF0C\u5E76\u518D\u6B21\u4EE5\u5B8C\u6574\u7684 JSON \u683C\u5F0F\u8F93\u51FA\u4FEE\u6539\u540E\u7684\u65B9\u6848\u3002\u8BF7\u52A1\u5FC5\u4FDD\u6301\u4E0E\u539F\u683C\u5F0F\u4E00\u81F4\uFF0C\u4E14\u53EA\u8F93\u51FA JSON \u5B57\u7B26\uFF0C\u4E0D\u8981\u8F93\u51FA\u4EFB\u4F55 MarkDown \u6807\u8BB0\u6216\u591A\u4F59\u7684\u89E3\u91CA\u3002`
+      };
+      const nextHistory = [...conversationHistory, userFeedbackMsg];
+      const url = apiBaseUrl.endsWith("/chat/completions") ? apiBaseUrl : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+      const headers = {
+        "Content-Type": "application/json"
+      };
+      if (plugin.settings.apiKey) {
+        headers.Authorization = `Bearer ${plugin.settings.apiKey}`;
+      }
+      const response = await (0, import_obsidian.requestUrl)({
+        url,
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: plugin.settings.model,
+          messages: nextHistory,
+          temperature: 0.2
+        })
+      });
+      if (response.status !== 200) {
+        throw new Error(response.text);
+      }
+      const aiContent = response.json?.choices?.[0]?.message?.content;
+      const parsed = extractJsonObject(aiContent);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("AI \u54CD\u5E94 JSON \u4E0D\u662F\u6709\u6548\u7684\u5F52\u6863\u5BF9\u8C61\u3002");
+      }
+      setAuditData(parsed);
+      setConversationHistory([...nextHistory, { role: "assistant", content: aiContent }]);
+      setFeedbackInstructions((prev) => [...prev, instruction]);
+      setFeedbackInput("");
+      new import_obsidian.Notice("\u2728 AI \u5DF2\u6839\u636E\u60A8\u7684\u53CD\u9988\u6210\u529F\u8C03\u6574\u65B9\u6848\uFF01");
+    } catch (e) {
+      console.error(e);
+      new import_obsidian.Notice("AI \u8C03\u6574\u5931\u8D25\uFF0C\u8BF7\u5C1D\u8BD5\u91CD\u65B0\u63CF\u8FF0\u60A8\u7684\u4FEE\u6539\u6307\u4EE4: " + String(e));
+    }
+    setFeedbackLoading(false);
+  };
   const handleDeleteItem = (listType, index) => {
     setAuditData((prev) => {
       const list = [...prev[listType] || []];
@@ -35961,7 +36020,13 @@ ${apiBaseUrl}
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         throw new Error("AI \u54CD\u5E94 JSON \u4E0D\u662F\u6709\u6548\u7684\u5F52\u6863\u5BF9\u8C61\u3002");
       }
+      const initialHistory = [
+        { role: "system", content: plugin.settings.promptTemplate },
+        { role: "user", content: "\u8BF7\u5206\u6790\u4EE5\u4E0B\u65E5\u8BB0\u5185\u5BB9\uFF0C\u5E76\u4E25\u683C\u6309\u7167 JSON \u683C\u5F0F\u8F93\u51FA\u62DF\u5F52\u6863\u65B9\u6848\uFF1A\n" + combinedContent }
+      ];
       setAuditData(parsed);
+      setConversationHistory([...initialHistory, { role: "assistant", content: aiContent }]);
+      setFeedbackInstructions([]);
       new import_obsidian.Notice("\u2728 AI \u5206\u6790\u5B8C\u6210\uFF01\u8BF7\u5BA1\u6838\u3002");
     } catch (e) {
       console.error(e);
@@ -36083,7 +36148,30 @@ ${apiBaseUrl}
     })), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group prm-audit-group-warning" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-header" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u2753 \u9700\u8981\u60A8\u786E\u8BA4\u7684\u4FE1\u606F (", auditData.uncertain?.length || 0, ")"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini prm-btn-add", onClick: () => handleAddItem("uncertain") }, "\u2795 \u6DFB\u52A0")), auditData.uncertain?.map((u, idx) => {
       const isEditing = editingItem && editingItem.type === "uncertain" && editingItem.index === idx;
       return /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, isEditing ? /* @__PURE__ */ React.createElement("div", { className: "prm-audit-edit-form" }, /* @__PURE__ */ React.createElement("input", { type: "text", value: editingItem.data.content, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, content: e.target.value } }), placeholder: "\u5B58\u7591\u5185\u5BB9" }), /* @__PURE__ */ React.createElement("textarea", { value: editingItem.data.reason, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, reason: e.target.value } }), placeholder: "\u5B58\u7591\u539F\u56E0", rows: 2 }), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-edit-actions" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary", style: { width: "auto", padding: "4px 10px" }, onClick: handleSaveEdit }, "\u4FDD\u5B58"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-secondary", onClick: () => setEditingItem(null) }, "\u53D6\u6D88"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-card-top" }, /* @__PURE__ */ React.createElement("strong", null, u.content), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-card-ops" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini-op", onClick: () => setEditingItem({ type: "uncertain", index: idx, data: { ...u } }) }, "\u270F\uFE0F"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-danger prm-btn-mini-op", onClick: () => handleDeleteItem("uncertain", idx) }, "\u{1F5D1}\uFE0F"))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, "\u{1F4A1} ", u.reason)));
-    }))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-footer" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-write-btn", onClick: confirmAndWrite, disabled: loading }, loading ? "\u5199\u5165\u4E2D..." : "\u{1F4BE} \u786E\u8BA4\u5E76\u4E00\u952E\u5199\u5165\u7CFB\u7EDF")));
+    }))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-feedback-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-section-title" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F4AC} \u8BA9 AI \u8C03\u6574\u65B9\u6848 (\u591A\u8F6E\u5BF9\u8BDD\u53CD\u9988)")), feedbackInstructions.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-history-list" }, feedbackInstructions.map((inst, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-feedback-history-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-feedback-history-bullet" }, "\u2713"), " \u5DF2\u6267\u884C\uFF1A", inst))), /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-input-row" }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "text",
+        value: feedbackInput,
+        onChange: (e) => setFeedbackInput(e.target.value),
+        placeholder: "\u8F93\u5165\u4FEE\u6539\u6307\u4EE4\uFF08\u5982\uFF1A\u628A\u9648\u9759\u6539\u4E3A\u5408\u4F5C\u4F19\u4F34\uFF0C\u6DFB\u52A0\u674E\u5A1C...\uFF09",
+        disabled: feedbackLoading,
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && !feedbackLoading && feedbackInput.trim()) {
+            runFeedbackAdjustment();
+          }
+        }
+      }
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "prm-btn-primary prm-btn-feedback-send",
+        onClick: runFeedbackAdjustment,
+        disabled: feedbackLoading || !feedbackInput.trim(),
+        style: { width: "auto", minWidth: "70px", height: "32px", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "center" }
+      },
+      feedbackLoading ? "\u5904\u7406\u4E2D..." : "\u53D1\u9001"
+    ))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-footer" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-write-btn", onClick: confirmAndWrite, disabled: loading }, loading ? "\u5199\u5165\u4E2D..." : "\u{1F4BE} \u786E\u8BA4\u5E76\u4E00\u952E\u5199\u5165\u7CFB\u7EDF")));
   }
   return /* @__PURE__ */ React.createElement("div", { className: "prm-ai-archiver" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-card" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-title" }, "\u{1F4E5} \u672A\u5F52\u6863\u65E5\u8BB0\u6C60"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "12px", color: "var(--text-muted)" } }, "\u626B\u63CF\u5230 ", dailyNotes.length, " \u7BC7\u5F85\u5904\u7406\u7B14\u8BB0"), /* @__PURE__ */ React.createElement("div", { className: "prm-notes-list" }, dailyNotes.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "prm-empty-state" }, "\u592A\u68D2\u4E86\uFF01\u6240\u6709\u65E5\u8BB0\u90FD\u5DF2\u5F52\u6863\u5B8C\u6BD5\u3002") : dailyNotes.map((n) => /* @__PURE__ */ React.createElement("label", { key: n.file.path, className: "prm-note-item" }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selectedNotes.includes(n.file), onChange: () => toggleNote(n.file) }), /* @__PURE__ */ React.createElement("span", null, n.title))))), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-ai-btn", onClick: runAnalysis, disabled: loading || selectedNotes.length === 0 }, loading ? "\u{1F916} \u8111\u529B\u6FC0\u8361\u4E2D..." : "\u2728 \u5F00\u59CB AI \u667A\u80FD\u5206\u6790"));
 };

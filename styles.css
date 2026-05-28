@@ -1504,3 +1504,59 @@ svg.leaflet-image-layer.leaflet-interactive path {
     gap: 8px;
     margin-top: 4px;
 }
+
+/* AI Conversational Feedback Styles */
+.prm-audit-feedback-section {
+    background-color: var(--background-primary);
+    border: 1px solid var(--interactive-accent);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 12px 0;
+    box-shadow: 0 2px 10px rgba(var(--interactive-accent-rgb), 0.1);
+}
+.prm-feedback-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--interactive-accent);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+.prm-feedback-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+    max-height: 80px;
+    overflow-y: auto;
+    background: var(--background-secondary);
+    padding: 6px;
+    border-radius: 4px;
+}
+.prm-feedback-history-item {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.prm-feedback-history-bullet {
+    color: #40c057;
+    font-weight: bold;
+    margin-right: 4px;
+}
+.prm-feedback-input-row {
+    display: flex;
+    gap: 8px;
+}
+.prm-feedback-input-row input {
+    flex: 1;
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    outline: none;
+}
+.prm-feedback-input-row input:focus {
+    border-color: var(--interactive-accent);
+}
