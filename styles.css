@@ -1419,3 +1419,88 @@ svg.leaflet-image-layer.leaflet-interactive path {
     padding-top: 16px;
     border-top: 1px solid var(--background-modifier-border);
 }
+
+.prm-audit-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.prm-btn-mini {
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.prm-btn-mini:hover {
+    border-color: var(--interactive-accent);
+    color: var(--interactive-accent);
+}
+.prm-btn-add {
+    background-color: var(--background-primary);
+    border-color: var(--interactive-accent);
+    color: var(--interactive-accent);
+    font-weight: 600;
+}
+.prm-btn-add:hover {
+    background-color: var(--interactive-accent);
+    color: white;
+}
+.prm-audit-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.prm-audit-card-ops {
+    display: flex;
+    gap: 4px;
+}
+.prm-btn-mini-op {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    opacity: 0.6;
+    transition: opacity 0.2s, background-color 0.2s;
+}
+.prm-btn-mini-op:hover {
+    opacity: 1;
+    background-color: var(--background-modifier-hover);
+}
+.prm-btn-mini-op.prm-btn-danger:hover {
+    background-color: rgba(224, 49, 49, 0.15);
+}
+.prm-audit-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+}
+.prm-audit-edit-form input,
+.prm-audit-edit-form textarea {
+    width: 100%;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+.prm-audit-edit-form input:focus,
+.prm-audit-edit-form textarea:focus {
+    border-color: var(--interactive-accent);
+}
+.prm-audit-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}

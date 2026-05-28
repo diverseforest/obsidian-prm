@@ -795,6 +795,54 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
     const [selectedNotes, setSelectedNotes] = React.useState<TFile[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [auditData, setAuditData] = React.useState<any>(null);
+    const [editingItem, setEditingItem] = React.useState<{ type: string, index: number, data: any } | null>(null);
+
+    const handleDeleteItem = (listType: string, index: number) => {
+        setAuditData((prev: any) => {
+            const list = [...(prev[listType] || [])];
+            list.splice(index, 1);
+            return { ...prev, [listType]: list };
+        });
+        if (editingItem && editingItem.type === listType && editingItem.index === index) {
+            setEditingItem(null);
+        }
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingItem) return;
+        setAuditData((prev: any) => {
+            const list = [...(prev[editingItem.type] || [])];
+            list[editingItem.index] = editingItem.data;
+            return { ...prev, [editingItem.type]: list };
+        });
+        setEditingItem(null);
+    };
+
+    const handleAddItem = (listType: string) => {
+        let defaultItem: any = {};
+        if (listType === "newPeople") {
+            defaultItem = { name: "", status: "活跃", city: "", primary_domain: "朋友", relationship_domains: ["朋友"], reason: "" };
+        } else if (listType === "updatePeople") {
+            defaultItem = { name: "", updates: { city: "", status: "活跃" }, bodyAppend: "", reason: "" };
+        } else if (listType === "newInteractions") {
+            defaultItem = { title: "", date: new Date().toISOString().split('T')[0], participants: [], entropy: 0.3, depth_reason: "", scene_type: "面谈", summary: "" };
+        } else if (listType === "newEndeavors") {
+            defaultItem = { title: "", participants: [], description: "", status: "活跃" };
+        } else if (listType === "uncertain") {
+            defaultItem = { content: "", reason: "" };
+        }
+
+        setAuditData((prev: any) => {
+            const list = prev[listType] ? [...prev[listType]] : [];
+            list.push(defaultItem);
+            return { ...prev, [listType]: list };
+        });
+
+        // 设置为编辑状态
+        setTimeout(() => {
+            setEditingItem({ type: listType, index: (auditData?.[listType]?.length || 0), data: defaultItem });
+        }, 50);
+    };
 
     React.useEffect(() => {
         loadUnprocessedNotes();
@@ -1020,56 +1068,209 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                 </div>
 
                 <div className="prm-audit-scroll">
-                    {auditData.newPeople && auditData.newPeople.length > 0 && (
-                        <div className="prm-audit-group">
-                            <div className="prm-audit-group-title">👤 拟新建人物 ({auditData.newPeople.length})</div>
-                            {auditData.newPeople.map((p: any, idx: number) => (
-                                <div key={idx} className="prm-audit-card">
-                                    <strong>{p.name}</strong> <span className="prm-badge">{p.status}</span>
-                                    <div className="prm-audit-meta">城市: {p.city} | 核心圈: {p.primary_domain}</div>
-                                    <div className="prm-audit-reason">💬 {p.reason}</div>
-                                </div>
-                            ))}
+                    {/* 👤 拟新建人物 */}
+                    <div className="prm-audit-group">
+                        <div className="prm-audit-group-header">
+                            <div className="prm-audit-group-title">👤 拟新建人物 ({auditData.newPeople?.length || 0})</div>
+                            <button className="prm-btn-mini prm-btn-add" onClick={() => handleAddItem("newPeople")}>➕ 添加</button>
                         </div>
-                    )}
-                    
-                    {auditData.newInteractions && auditData.newInteractions.length > 0 && (
-                        <div className="prm-audit-group">
-                            <div className="prm-audit-group-title">🤝 拟新增交互 ({auditData.newInteractions.length})</div>
-                            {auditData.newInteractions.map((i: any, idx: number) => (
+                        {auditData.newPeople?.map((p: any, idx: number) => {
+                            const isEditing = editingItem && editingItem.type === "newPeople" && editingItem.index === idx;
+                            return (
                                 <div key={idx} className="prm-audit-card">
-                                    <strong>{i.title}</strong> <span className="prm-badge">{i.date}</span>
-                                    <div className="prm-audit-meta">参与者: {(i.participants || []).join(", ")}</div>
-                                    <div className="prm-audit-reason">深度: {i.entropy} | {i.depth_reason}</div>
+                                    {isEditing ? (
+                                        <div className="prm-audit-edit-form">
+                                            <input type="text" value={editingItem.data.name} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} placeholder="姓名" />
+                                            <input type="text" value={editingItem.data.city} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, city: e.target.value } })} placeholder="城市" />
+                                            <input type="text" value={editingItem.data.primary_domain} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, primary_domain: e.target.value } })} placeholder="主关系域 (如 朋友、客户)" />
+                                            <textarea value={editingItem.data.reason} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, reason: e.target.value } })} placeholder="新建原因" rows={2} />
+                                            <div className="prm-audit-edit-actions">
+                                                <button className="prm-btn-primary" style={{ width: "auto", padding: "4px 10px" }} onClick={handleSaveEdit}>保存</button>
+                                                <button className="prm-btn-secondary" onClick={() => setEditingItem(null)}>取消</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="prm-audit-card-top">
+                                                <strong>{p.name}</strong> <span className="prm-badge">{p.status || "活跃"}</span>
+                                                <div className="prm-audit-card-ops">
+                                                    <button className="prm-btn-mini-op" onClick={() => setEditingItem({ type: "newPeople", index: idx, data: { ...p } })}>✏️</button>
+                                                    <button className="prm-btn-mini-op prm-btn-danger" onClick={() => handleDeleteItem("newPeople", idx)}>🗑️</button>
+                                                </div>
+                                            </div>
+                                            <div className="prm-audit-meta">城市: {p.city} | 核心圈: {p.primary_domain}</div>
+                                            <div className="prm-audit-reason">💬 {p.reason}</div>
+                                        </>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            );
+                        })}
+                    </div>
 
-                    {auditData.newEndeavors && auditData.newEndeavors.length > 0 && (
-                        <div className="prm-audit-group">
-                            <div className="prm-audit-group-title">🎯 拟新增共同事项 ({auditData.newEndeavors.length})</div>
-                            {auditData.newEndeavors.map((e: any, idx: number) => (
-                                <div key={idx} className="prm-audit-card">
-                                    <strong>{e.title}</strong>
-                                    <div className="prm-audit-meta">参与者: {(e.participants || []).join(", ")}</div>
-                                    <div className="prm-audit-reason">{e.description}</div>
-                                </div>
-                            ))}
+                    {/* 🔄 拟更新人物 */}
+                    <div className="prm-audit-group">
+                        <div className="prm-audit-group-header">
+                            <div className="prm-audit-group-title">🔄 拟更新人物 ({auditData.updatePeople?.length || 0})</div>
+                            <button className="prm-btn-mini prm-btn-add" onClick={() => handleAddItem("updatePeople")}>➕ 添加</button>
                         </div>
-                    )}
+                        {auditData.updatePeople?.map((p: any, idx: number) => {
+                            const isEditing = editingItem && editingItem.type === "updatePeople" && editingItem.index === idx;
+                            return (
+                                <div key={idx} className="prm-audit-card">
+                                    {isEditing ? (
+                                        <div className="prm-audit-edit-form">
+                                            <input type="text" value={editingItem.data.name} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })} placeholder="姓名" />
+                                            <input type="text" value={editingItem.data.updates?.city || ""} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, updates: { ...editingItem.data.updates, city: e.target.value } } })} placeholder="城市更新" />
+                                            <input type="text" value={editingItem.data.updates?.status || ""} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, updates: { ...editingItem.data.updates, status: e.target.value } } })} placeholder="状态更新" />
+                                            <textarea value={editingItem.data.bodyAppend} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, bodyAppend: e.target.value } })} placeholder="追加到人物正文的内容" rows={2} />
+                                            <textarea value={editingItem.data.reason} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, reason: e.target.value } })} placeholder="更新原因" rows={2} />
+                                            <div className="prm-audit-edit-actions">
+                                                <button className="prm-btn-primary" style={{ width: "auto", padding: "4px 10px" }} onClick={handleSaveEdit}>保存</button>
+                                                <button className="prm-btn-secondary" onClick={() => setEditingItem(null)}>取消</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="prm-audit-card-top">
+                                                <strong>{p.name}</strong>
+                                                <div className="prm-audit-card-ops">
+                                                    <button className="prm-btn-mini-op" onClick={() => setEditingItem({ type: "updatePeople", index: idx, data: { ...p } })}>✏️</button>
+                                                    <button className="prm-btn-mini-op prm-btn-danger" onClick={() => handleDeleteItem("updatePeople", idx)}>🗑️</button>
+                                                </div>
+                                            </div>
+                                            {p.updates && Object.keys(p.updates).length > 0 && (
+                                                <div className="prm-audit-meta">
+                                                    更新字段: {Object.entries(p.updates).map(([k, v]) => `${k} -> ${v}`).join(", ")}
+                                                </div>
+                                            )}
+                                            {p.bodyAppend && (
+                                                <div className="prm-audit-reason" style={{ borderLeft: "2px solid var(--interactive-accent)", paddingLeft: "6px" }}>
+                                                    📝 追加内容: {p.bodyAppend}
+                                                </div>
+                                            )}
+                                            <div className="prm-audit-reason">💬 原因: {p.reason}</div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
 
-                    {auditData.uncertain && auditData.uncertain.length > 0 && (
-                        <div className="prm-audit-group prm-audit-group-warning">
-                            <div className="prm-audit-group-title">❓ 需要您确认的信息</div>
-                            {auditData.uncertain.map((u: any, idx: number) => (
-                                <div key={idx} className="prm-audit-card">
-                                    <strong>{u.content}</strong>
-                                    <div className="prm-audit-reason">💡 {u.reason}</div>
-                                </div>
-                            ))}
+                    {/* 🤝 拟新增交互 */}
+                    <div className="prm-audit-group">
+                        <div className="prm-audit-group-header">
+                            <div className="prm-audit-group-title">🤝 拟新增交互 ({auditData.newInteractions?.length || 0})</div>
+                            <button className="prm-btn-mini prm-btn-add" onClick={() => handleAddItem("newInteractions")}>➕ 添加</button>
                         </div>
-                    )}
+                        {auditData.newInteractions?.map((i: any, idx: number) => {
+                            const isEditing = editingItem && editingItem.type === "newInteractions" && editingItem.index === idx;
+                            return (
+                                <div key={idx} className="prm-audit-card">
+                                    {isEditing ? (
+                                        <div className="prm-audit-edit-form">
+                                            <input type="text" value={editingItem.data.title} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, title: e.target.value } })} placeholder="交互标题" />
+                                            <input type="text" value={editingItem.data.date} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, date: e.target.value } })} placeholder="日期 (YYYY-MM-DD)" />
+                                            <input type="text" value={(editingItem.data.participants || []).join(", ")} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, participants: e.target.value.split(",").map(s => s.trim()).filter(Boolean) } })} placeholder="参与者 (逗号分隔)" />
+                                            <input type="number" step="0.1" min="0.1" max="1.0" value={editingItem.data.entropy} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, entropy: Number(e.target.value) } })} placeholder="深度评分 (0.1-1.0)" />
+                                            <textarea value={editingItem.data.depth_reason} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, depth_reason: e.target.value } })} placeholder="深度评分理由" rows={2} />
+                                            <textarea value={editingItem.data.summary} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, summary: e.target.value } })} placeholder="交互事实摘要" rows={2} />
+                                            <div className="prm-audit-edit-actions">
+                                                <button className="prm-btn-primary" style={{ width: "auto", padding: "4px 10px" }} onClick={handleSaveEdit}>保存</button>
+                                                <button className="prm-btn-secondary" onClick={() => setEditingItem(null)}>取消</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="prm-audit-card-top">
+                                                <strong>{i.title}</strong> <span className="prm-badge">{i.date}</span>
+                                                <div className="prm-audit-card-ops">
+                                                    <button className="prm-btn-mini-op" onClick={() => setEditingItem({ type: "newInteractions", index: idx, data: { ...i } })}>✏️</button>
+                                                    <button className="prm-btn-danger prm-btn-mini-op" onClick={() => handleDeleteItem("newInteractions", idx)}>🗑️</button>
+                                                </div>
+                                            </div>
+                                            <div className="prm-audit-meta">参与者: {(i.participants || []).join(", ")}</div>
+                                            <div className="prm-audit-reason">深度: {i.entropy} | {i.depth_reason}</div>
+                                            {i.summary && <div className="prm-audit-reason" style={{ borderLeft: "2px solid #2f9e44", paddingLeft: "6px" }}>📝 摘要: {i.summary}</div>}
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* 🎯 拟新增共同事项 */}
+                    <div className="prm-audit-group">
+                        <div className="prm-audit-group-header">
+                            <div className="prm-audit-group-title">🎯 拟新增共同事项 ({auditData.newEndeavors?.length || 0})</div>
+                            <button className="prm-btn-mini prm-btn-add" onClick={() => handleAddItem("newEndeavors")}>➕ 添加</button>
+                        </div>
+                        {auditData.newEndeavors?.map((e: any, idx: number) => {
+                            const isEditing = editingItem && editingItem.type === "newEndeavors" && editingItem.index === idx;
+                            return (
+                                <div key={idx} className="prm-audit-card">
+                                    {isEditing ? (
+                                        <div className="prm-audit-edit-form">
+                                            <input type="text" value={editingItem.data.title} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, title: e.target.value } })} placeholder="项目/事项标题" />
+                                            <input type="text" value={(editingItem.data.participants || []).join(", ")} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, participants: e.target.value.split(",").map(s => s.trim()).filter(Boolean) } })} placeholder="参与者 (逗号分隔)" />
+                                            <textarea value={editingItem.data.description} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, description: e.target.value } })} placeholder="项目描述" rows={2} />
+                                            <div className="prm-audit-edit-actions">
+                                                <button className="prm-btn-primary" style={{ width: "auto", padding: "4px 10px" }} onClick={handleSaveEdit}>保存</button>
+                                                <button className="prm-btn-secondary" onClick={() => setEditingItem(null)}>取消</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="prm-audit-card-top">
+                                                <strong>{e.title}</strong>
+                                                <div className="prm-audit-card-ops">
+                                                    <button className="prm-btn-mini-op" onClick={() => setEditingItem({ type: "newEndeavors", index: idx, data: { ...e } })}>✏️</button>
+                                                    <button className="prm-btn-danger prm-btn-mini-op" onClick={() => handleDeleteItem("newEndeavors", idx)}>🗑️</button>
+                                                </div>
+                                            </div>
+                                            <div className="prm-audit-meta">参与者: {(e.participants || []).join(", ")}</div>
+                                            <div className="prm-audit-reason">{e.description}</div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* ❓ 需要您确认的信息 */}
+                    <div className="prm-audit-group prm-audit-group-warning">
+                        <div className="prm-audit-group-header">
+                            <div className="prm-audit-group-title">❓ 需要您确认的信息 ({auditData.uncertain?.length || 0})</div>
+                            <button className="prm-btn-mini prm-btn-add" onClick={() => handleAddItem("uncertain")}>➕ 添加</button>
+                        </div>
+                        {auditData.uncertain?.map((u: any, idx: number) => {
+                            const isEditing = editingItem && editingItem.type === "uncertain" && editingItem.index === idx;
+                            return (
+                                <div key={idx} className="prm-audit-card">
+                                    {isEditing ? (
+                                        <div className="prm-audit-edit-form">
+                                            <input type="text" value={editingItem.data.content} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, content: e.target.value } })} placeholder="存疑内容" />
+                                            <textarea value={editingItem.data.reason} onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, reason: e.target.value } })} placeholder="存疑原因" rows={2} />
+                                            <div className="prm-audit-edit-actions">
+                                                <button className="prm-btn-primary" style={{ width: "auto", padding: "4px 10px" }} onClick={handleSaveEdit}>保存</button>
+                                                <button className="prm-btn-secondary" onClick={() => setEditingItem(null)}>取消</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="prm-audit-card-top">
+                                                <strong>{u.content}</strong>
+                                                <div className="prm-audit-card-ops">
+                                                    <button className="prm-btn-mini-op" onClick={() => setEditingItem({ type: "uncertain", index: idx, data: { ...u } })}>✏️</button>
+                                                    <button className="prm-btn-danger prm-btn-mini-op" onClick={() => handleDeleteItem("uncertain", idx)}>🗑️</button>
+                                                </div>
+                                            </div>
+                                            <div className="prm-audit-reason">💡 {u.reason}</div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="prm-audit-footer">
