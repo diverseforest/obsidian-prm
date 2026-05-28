@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-prm-map",
+  "name": "PRM Map",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.16",
+  "description": "Geographical visualization for Obsidian PRM. Renders an adaptive Leaflet map with county-level geocoding and unique marker clustering.",
+  "author": "Antigravity",
+  "authorUrl": "https://github.com/Antigravity",
+  "isDesktopOnly": true
+}
