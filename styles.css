@@ -1560,3 +1560,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .prm-feedback-input-row input:focus {
     border-color: var(--interactive-accent);
 }
+
+/* Fix for Obsidian input cursor and text typing issues */
+.prm-audit-panel input,
+.prm-audit-panel textarea,
+.prm-ai-archiver input,
+.prm-ai-archiver textarea {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text !important;
+}
