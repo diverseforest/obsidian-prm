@@ -1133,7 +1133,7 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
 
     if (auditData) {
         return (
-            <div className="prm-audit-panel">
+            <div className="prm-audit-panel" onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
                 <div className="prm-audit-header">
                     <h3>🔍 AI 拟归档审核</h3>
                     <button className="prm-btn-secondary" onClick={() => setAuditData(null)}>放弃</button>
