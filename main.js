@@ -35302,6 +35302,21 @@ var PRMMapApp = ({ app, plugin }) => {
   const [filterDomain, setFilterDomain] = React.useState("\u5168\u90E8");
   const [filterContactWarning, setFilterContactWarning] = React.useState("\u5168\u90E8");
   const [filterRadius, setFilterRadius] = React.useState(0);
+  const [activeTab, setActiveTab] = React.useState("radar");
+  const [isInitialized, setIsInitialized] = React.useState(true);
+  React.useEffect(() => {
+    const checkFolders = () => {
+      const folders = ["People", "Interactions", "Endeavors", "Daily", "Templates"];
+      let allExist = true;
+      for (const f of folders) {
+        if (!(app.vault.getAbstractFileByPath(f) instanceof import_obsidian.TFolder)) {
+          allExist = false;
+        }
+      }
+      setIsInitialized(allExist);
+    };
+    checkFolders();
+  }, [app]);
   const mapContainerRef = React.useRef(null);
   const mapRef = React.useRef(null);
   const markerClusterGroupRef = React.useRef(null);
@@ -35576,7 +35591,10 @@ var PRMMapApp = ({ app, plugin }) => {
   ];
   const uniqueContactCount = filteredPeople.length;
   const totalLocationsCount = filteredPeople.reduce((sum, p) => sum + p.cityList.length, 0);
-  return /* @__PURE__ */ React.createElement("div", { className: "prm-map-layout" }, /* @__PURE__ */ React.createElement("div", { className: "prm-map-wrapper" }, /* @__PURE__ */ React.createElement("div", { id: "prm-leaflet-map", ref: mapContainerRef }), pickingFor && /* @__PURE__ */ React.createElement("div", { className: "prm-picking-overlay" }, "\u6B63\u5728\u4E3A ", /* @__PURE__ */ React.createElement("strong", null, pickingFor.name), " \u62FE\u53D6\u5750\u6807\u3002\u8BF7\u70B9\u51FB\u5730\u56FE\u5177\u4F53\u4F4D\u7F6E\uFF0C\u6216 ", /* @__PURE__ */ React.createElement("button", { onClick: () => setPickingFor(null) }, "\u53D6\u6D88"))), /* @__PURE__ */ React.createElement("div", { className: "prm-sidebar" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-card" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-title" }, "\u{1F4CD} \u4EBA\u8109\u6570\u636E\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-grid" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, uniqueContactCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F464} \u552F\u4E00\u8054\u7CFB\u4EBA")), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, totalLocationsCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F5FA}\uFE0F \u8F90\u5C04\u5206\u5E03\u70B9")))), /* @__PURE__ */ React.createElement("div", { className: "prm-filters-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u6D3B\u8DC3\u72B6\u6001"), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => setFilterStatus(e.target.value) }, statusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u5173\u7CFB\u57DF"), /* @__PURE__ */ React.createElement("select", { value: filterDomain, onChange: (e) => setFilterDomain(e.target.value) }, domainOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u8054\u7CFB\u7EF4\u62A4\u8B66\u544A"), /* @__PURE__ */ React.createElement("select", { value: filterContactWarning, onChange: (e) => setFilterContactWarning(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "\u5168\u90E8" }, "\u4E0D\u9650"), /* @__PURE__ */ React.createElement("option", { value: "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB"), /* @__PURE__ */ React.createElement("option", { value: "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB"))), selectedLocation && /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group prm-radius-filter" }, /* @__PURE__ */ React.createElement("label", null, "\u5DEE\u65C5\u96F7\u8FBE (\u8F90\u5C04\u8303\u56F4)"), /* @__PURE__ */ React.createElement("select", { value: filterRadius, onChange: (e) => setFilterRadius(Number(e.target.value)) }, radiusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt.value, value: opt.value }, opt.label))))), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-section-title" }, /* @__PURE__ */ React.createElement("span", null, selectedLocation ? `\u{1F4CD} \u4E2D\u5FC3: ${selectedLocation} ${filterRadius ? `(${filterRadius}km)` : ""}` : "\u{1F464} \u5168\u90E8\u8054\u7CFB\u4EBA"), selectedLocation && /* @__PURE__ */ React.createElement("button", { className: "prm-btn-reset", onClick: handleResetLocation }, "\u91CD\u7F6E")), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-scroll" }, (selectedLocation ? selectedPeople : filteredPeople).length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "prm-empty-state" }, "\u6CA1\u6709\u5339\u914D\u7684\u8054\u7CFB\u4EBA\u3002") : (selectedLocation ? selectedPeople : filteredPeople).map((person) => {
+  if (!isInitialized) {
+    return /* @__PURE__ */ React.createElement(OneClickSetup, { app, onComplete: () => setIsInitialized(true) });
+  }
+  return /* @__PURE__ */ React.createElement("div", { className: "prm-map-layout" }, /* @__PURE__ */ React.createElement("div", { className: "prm-map-wrapper", style: { display: activeTab === "radar" ? "block" : "none" } }, /* @__PURE__ */ React.createElement("div", { id: "prm-leaflet-map", ref: mapContainerRef }), pickingFor && /* @__PURE__ */ React.createElement("div", { className: "prm-picking-overlay" }, "\u6B63\u5728\u4E3A ", /* @__PURE__ */ React.createElement("strong", null, pickingFor.name), " \u62FE\u53D6\u5750\u6807\u3002\u8BF7\u70B9\u51FB\u5730\u56FE\u5177\u4F53\u4F4D\u7F6E\uFF0C\u6216 ", /* @__PURE__ */ React.createElement("button", { onClick: () => setPickingFor(null) }, "\u53D6\u6D88"))), /* @__PURE__ */ React.createElement("div", { className: "prm-sidebar", style: { width: "100%", maxWidth: activeTab === "ai" ? "100%" : "350px", transition: "max-width 0.3s ease" } }, /* @__PURE__ */ React.createElement("div", { className: "prm-tab-switcher" }, /* @__PURE__ */ React.createElement("button", { className: `prm-tab-btn ${activeTab === "radar" ? "active" : ""}`, onClick: () => setActiveTab("radar") }, "\u{1F4CD} \u5730\u7406\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("button", { className: `prm-tab-btn ${activeTab === "ai" ? "active" : ""}`, onClick: () => setActiveTab("ai") }, "\u{1F916} AI \u5F52\u6863\u52A9\u7406")), activeTab === "ai" && /* @__PURE__ */ React.createElement(PRMAIArchiver, { app, plugin }), /* @__PURE__ */ React.createElement("div", { style: { display: activeTab === "radar" ? "flex" : "none", flexDirection: "column", height: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-card" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-title" }, "\u{1F4CD} \u4EBA\u8109\u6570\u636E\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-grid" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, uniqueContactCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F464} \u552F\u4E00\u8054\u7CFB\u4EBA")), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, totalLocationsCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F5FA}\uFE0F \u8F90\u5C04\u5206\u5E03\u70B9")))), /* @__PURE__ */ React.createElement("div", { className: "prm-filters-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u6D3B\u8DC3\u72B6\u6001"), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => setFilterStatus(e.target.value) }, statusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u5173\u7CFB\u57DF"), /* @__PURE__ */ React.createElement("select", { value: filterDomain, onChange: (e) => setFilterDomain(e.target.value) }, domainOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u8054\u7CFB\u7EF4\u62A4\u8B66\u544A"), /* @__PURE__ */ React.createElement("select", { value: filterContactWarning, onChange: (e) => setFilterContactWarning(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "\u5168\u90E8" }, "\u4E0D\u9650"), /* @__PURE__ */ React.createElement("option", { value: "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB"), /* @__PURE__ */ React.createElement("option", { value: "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB"))), selectedLocation && /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group prm-radius-filter" }, /* @__PURE__ */ React.createElement("label", null, "\u5DEE\u65C5\u96F7\u8FBE (\u8F90\u5C04\u8303\u56F4)"), /* @__PURE__ */ React.createElement("select", { value: filterRadius, onChange: (e) => setFilterRadius(Number(e.target.value)) }, radiusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt.value, value: opt.value }, opt.label))))), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-section-title" }, /* @__PURE__ */ React.createElement("span", null, selectedLocation ? `\u{1F4CD} \u4E2D\u5FC3: ${selectedLocation} ${filterRadius ? `(${filterRadius}km)` : ""}` : "\u{1F464} \u5168\u90E8\u8054\u7CFB\u4EBA"), selectedLocation && /* @__PURE__ */ React.createElement("button", { className: "prm-btn-reset", onClick: handleResetLocation }, "\u91CD\u7F6E")), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-scroll" }, (selectedLocation ? selectedPeople : filteredPeople).length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "prm-empty-state" }, "\u6CA1\u6709\u5339\u914D\u7684\u8054\u7CFB\u4EBA\u3002") : (selectedLocation ? selectedPeople : filteredPeople).map((person) => {
     const isWarning = (() => {
       if (!person.lastContact || person.lastContact === "\u672A\u8BB0\u5F55")
         return false;
@@ -35595,15 +35613,385 @@ var PRMMapApp = ({ app, plugin }) => {
       },
       person.name
     ), /* @__PURE__ */ React.createElement("span", { className: `prm-badge prm-status-${person.status}` }, person.status)), /* @__PURE__ */ React.createElement("div", { className: "prm-card-body" }, /* @__PURE__ */ React.createElement("div", { className: "prm-card-row" }, /* @__PURE__ */ React.createElement("span", { className: "prm-card-label" }, "\u4F4D\u7F6E\uFF1A"), /* @__PURE__ */ React.createElement("span", { className: "prm-card-val-cities" }, person.preciseLocation ? /* @__PURE__ */ React.createElement("span", { className: "prm-city-tag prm-tag-precise" }, "\u7CBE\u786E\u5750\u6807\u5DF2\u8BBE") : null, person.cityList.map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "prm-city-tag", onClick: () => setSelectedLocation(c) }, c)))), /* @__PURE__ */ React.createElement("div", { className: "prm-card-row" }, /* @__PURE__ */ React.createElement("span", { className: "prm-card-label" }, "\u6700\u8FD1\uFF1A"), /* @__PURE__ */ React.createElement("span", { className: `prm-card-val ${isWarning ? "prm-text-danger" : ""}` }, person.lastContact, isWarning && /* @__PURE__ */ React.createElement("span", { className: "prm-warn-icon", title: "\u8D85\u8FC73\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u26A0\uFE0F"))), /* @__PURE__ */ React.createElement("div", { className: "prm-card-actions" }, /* @__PURE__ */ React.createElement("button", { className: "prm-action-btn", onClick: () => handleQuickLog(person) }, "\u2705 \u8BB0\u4ECA\u65E5\u8054\u7CFB"), /* @__PURE__ */ React.createElement("button", { className: "prm-action-btn", onClick: () => setPickingFor(person) }, "\u{1F4CC} \u624B\u5DE5\u62FE\u53D6\u5750\u6807"))));
-  })))));
+  }))))));
+};
+var TEMPLATE_PEOPLE = `---
+categories:
+  - "[[People]]"
+aliases: []
+status: \u6D3B\u8DC3
+relationship_domains:
+  - \u670B\u53CB
+primary_domain: \u670B\u53CB
+relationship_stage:
+last_contact:
+trust_in_me:
+trust_in_solution:
+city:
+life_stage:
+---
+
+# {{title}}
+
+## \u57FA\u672C\u4FE1\u606F
+## \u5173\u7CFB\u753B\u50CF
+## \u5173\u7CFB\u4E0A\u4E0B\u6587
+## \u5BB6\u5EAD\u6559\u80B2\u89C2\u5BDF
+## \u91CD\u8981\u89C2\u5BDF
+## \u540E\u7EED\u884C\u52A8
+- [ ] 
+
+## \u5171\u540C\u4E8B\u9879
+![[Endeavors.base#Person]]
+
+## \u4EA4\u4E92
+![[Interactions.base#Person]]
+`;
+var TEMPLATE_INTERACTION = `---
+categories:
+  - "[[Interactions]]"
+date: {{date}}
+participants: []
+interaction_context:
+  - \u79C1\u4EBA
+business_intent: \u65E0
+scene_type: \u9762\u8C08
+location_city: 
+location_type: 
+location_place: ""
+topics: []
+self_energy: 
+self_openness: 
+self_mode: \u5E73\u8861
+self_aftertaste: \u4E00\u822C
+entropy_max: 
+entropy_avg: 
+entropy_map: {}
+depth_reason: ""
+relationship_delta: ""
+linked_endeavors: []
+---
+
+# {{title}}
+
+## \u4E8B\u5B9E
+## \u6458\u8981\uFF08\u6309\u4EBA\uFF09
+## \u4EA4\u6D41\u6DF1\u5EA6\u5224\u65AD
+- depth reason:
+- relationship delta:
+
+## \u540E\u7EED\u884C\u52A8
+- [ ] 
+`;
+var TEMPLATE_ENDEAVOR = `---
+categories:
+  - "[[Endeavors]]"
+status: \u6D3B\u8DC3
+endeavor_type: \u9879\u76EE
+participants: []
+relationship_domains:
+  - \u670B\u53CB
+start_date:
+end_date:
+importance:
+energy_cost:
+relationship_impact:
+outcome:
+linked_interactions: []
+next_review_date:
+---
+
+# {{title}}
+
+## \u521D\u8877
+## \u53C2\u4E0E\u8005
+## \u76EE\u6807
+## \u5F53\u524D\u72B6\u6001
+## \u5206\u5DE5
+## \u5173\u952E\u4E92\u52A8
+## \u5173\u7CFB\u89C2\u5BDF
+## \u540E\u7EED\u884C\u52A8
+- [ ] 
+## \u7ED3\u679C\u590D\u76D8
+`;
+var TEMPLATE_DAILY = `---
+date: {{date}}
+prm_processed: false
+---
+
+\u8BB0\u5F55\u4E00\u4E0B\u4ECA\u5929\u7684\u89C1\u95FB...
+`;
+var OneClickSetup = ({ app, onComplete }) => {
+  const [loading, setLoading] = React.useState(false);
+  const handleInitialize = async () => {
+    setLoading(true);
+    try {
+      const folders = ["People", "Interactions", "Endeavors", "Daily", "Templates"];
+      for (const f of folders) {
+        if (!(app.vault.getAbstractFileByPath(f) instanceof import_obsidian.TFolder)) {
+          await app.vault.createFolder(f);
+        }
+      }
+      const writeTemplate = async (path, content) => {
+        if (!app.vault.getAbstractFileByPath(path)) {
+          await app.vault.create(path, content);
+        }
+      };
+      await writeTemplate("Templates/PRM-\u4EBA\u8109\u6A21\u677F.md", TEMPLATE_PEOPLE);
+      await writeTemplate("Templates/PRM-\u4EA4\u4E92\u8BB0\u5F55\u6A21\u677F.md", TEMPLATE_INTERACTION);
+      await writeTemplate("Templates/PRM-\u5171\u540C\u4E8B\u9879\u6A21\u677F.md", TEMPLATE_ENDEAVOR);
+      await writeTemplate("Templates/PRM-\u65E5\u8BB0\u6A21\u677F.md", TEMPLATE_DAILY);
+      const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      await writeTemplate(`Daily/${today}-PRM\u65B0\u624B\u6D4B\u8BD5.md`, `---
+date: ${today}
+prm_processed: false
+---
+
+\u4ECA\u5929\u4E0B\u5348\u89C1\u5230\u4E86\u5C0F\u660E\u3002\u4ED6\u8BF4\u4ED6\u6700\u8FD1\u5728\u90D1\u5DDE\u5FD9\u4E00\u4E9B\u6559\u80B2\u76F8\u5173\u7684\u4E8B\u60C5\u3002\u6211\u4EEC\u804A\u5F97\u5F88\u6DF1\u5165\uFF0C\u611F\u89C9\u5173\u7CFB\u53C8\u8FD1\u4E86\u4E00\u6B65\u3002
+`);
+      new import_obsidian.Notice("PRM \u5DE5\u4F5C\u533A\u521D\u59CB\u5316\u6210\u529F\uFF01");
+      onComplete();
+    } catch (e) {
+      new import_obsidian.Notice("\u521D\u59CB\u5316\u5931\u8D25: " + e);
+    }
+    setLoading(false);
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "prm-setup-container" }, /* @__PURE__ */ React.createElement("h2", { className: "prm-setup-title" }, "\u6B22\u8FCE\u4F7F\u7528 PRM Map & AI Assistant \u{1F680}"), /* @__PURE__ */ React.createElement("p", { className: "prm-setup-desc" }, "\u68C0\u6D4B\u5230\u60A8\u7684\u5E93\u4E2D\u7F3A\u5C11\u57FA\u7840\u7684 PRM \u6587\u4EF6\u5939\u7ED3\u6784\u3002\u53EA\u9700\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\uFF0C\u6211\u4EEC\u5C06\u81EA\u52A8\u4E3A\u60A8\u751F\u6210\u6240\u9700\u7684\u76EE\u5F55\u548C\u6807\u51C6\u6A21\u677F\u3002"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-setup-btn", onClick: handleInitialize, disabled: loading }, loading ? "\u6B63\u5728\u521D\u59CB\u5316..." : "\u2728 \u4E00\u952E\u521D\u59CB\u5316 PRM \u5DE5\u4F5C\u533A"));
+};
+var PRMAIArchiver = ({ app, plugin }) => {
+  const [dailyNotes, setDailyNotes] = React.useState([]);
+  const [selectedNotes, setSelectedNotes] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [auditData, setAuditData] = React.useState(null);
+  React.useEffect(() => {
+    loadUnprocessedNotes();
+  }, [app]);
+  const loadUnprocessedNotes = () => {
+    const folder = app.vault.getAbstractFileByPath("Daily");
+    if (!(folder instanceof import_obsidian.TFolder))
+      return;
+    const files = [];
+    folder.children.forEach((file) => {
+      if (file instanceof import_obsidian.TFile && file.extension === "md") {
+        const cache = app.metadataCache.getFileCache(file);
+        if (!cache?.frontmatter || cache.frontmatter.prm_processed !== true) {
+          files.push({
+            file,
+            title: file.basename,
+            date: cache?.frontmatter?.date || "\u672A\u77E5\u65E5\u671F"
+          });
+        }
+      }
+    });
+    setDailyNotes(files);
+    setSelectedNotes(files.map((f) => f.file));
+  };
+  const toggleNote = (file) => {
+    setSelectedNotes((prev) => prev.includes(file) ? prev.filter((f) => f.path !== file.path) : [...prev, file]);
+  };
+  const runAnalysis = async () => {
+    if (selectedNotes.length === 0) {
+      new import_obsidian.Notice("\u8BF7\u9009\u62E9\u81F3\u5C11\u4E00\u7BC7\u65E5\u8BB0\uFF01");
+      return;
+    }
+    if (!plugin.settings.apiKey) {
+      new import_obsidian.Notice("\u9519\u8BEF\uFF1A\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u914D\u7F6E\u5927\u6A21\u578B API Key\uFF01");
+      return;
+    }
+    setLoading(true);
+    try {
+      let combinedContent = "";
+      for (const file of selectedNotes) {
+        const content = await app.vault.cachedRead(file);
+        combinedContent += `
+
+--- \u65E5\u8BB0: ${file.basename} ---
+` + content;
+      }
+      const url = plugin.settings.apiBaseUrl.endsWith("/chat/completions") ? plugin.settings.apiBaseUrl : plugin.settings.apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+      const response = await (0, import_obsidian.requestUrl)({
+        url,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${plugin.settings.apiKey}`
+        },
+        body: JSON.stringify({
+          model: plugin.settings.model,
+          messages: [
+            { role: "system", content: plugin.settings.promptTemplate },
+            { role: "user", content: "\u8BF7\u5206\u6790\u4EE5\u4E0B\u65E5\u8BB0\u5185\u5BB9\uFF0C\u5E76\u4E25\u683C\u6309\u7167 JSON \u683C\u5F0F\u8F93\u51FA\u62DF\u5F52\u6863\u65B9\u6848\uFF1A\n" + combinedContent }
+          ],
+          temperature: 0.2
+        })
+      });
+      if (response.status !== 200) {
+        throw new Error(response.text);
+      }
+      const aiContent = response.json.choices[0].message.content;
+      const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : aiContent;
+      setAuditData(JSON.parse(jsonString));
+      new import_obsidian.Notice("\u2728 AI \u5206\u6790\u5B8C\u6210\uFF01\u8BF7\u5BA1\u6838\u3002");
+    } catch (e) {
+      console.error(e);
+      new import_obsidian.Notice("\u5206\u6790\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u8BBE\u7F6E\u4E2D\u7684\u63A5\u53E3\u914D\u7F6E\u548C\u7F51\u7EDC: " + String(e));
+    }
+    setLoading(false);
+  };
+  const confirmAndWrite = async () => {
+    setLoading(true);
+    try {
+      if (auditData.newPeople) {
+        for (const p of auditData.newPeople) {
+          const path = `People/${p.name}.md`;
+          if (!app.vault.getAbstractFileByPath(path)) {
+            let content = TEMPLATE_PEOPLE.replace("{{title}}", p.name);
+            await app.vault.create(path, content);
+            const file = app.vault.getAbstractFileByPath(path);
+            await app.fileManager.processFrontMatter(file, (fm) => {
+              fm.status = p.status || "\u6D3B\u8DC3";
+              fm.city = p.city || "";
+              fm.primary_domain = p.primary_domain || "";
+              if (p.relationship_domains)
+                fm.relationship_domains = p.relationship_domains;
+            });
+          }
+        }
+      }
+      if (auditData.updatePeople) {
+        for (const p of auditData.updatePeople) {
+          const file = app.vault.getAbstractFileByPath(`People/${p.name}.md`);
+          if (file instanceof import_obsidian.TFile && p.updates) {
+            await app.fileManager.processFrontMatter(file, (fm) => {
+              for (const [k, v] of Object.entries(p.updates)) {
+                fm[k] = v;
+              }
+            });
+          }
+        }
+      }
+      if (auditData.newInteractions) {
+        for (const i of auditData.newInteractions) {
+          const safeTitle = i.title ? i.title.replace(new RegExp('[\\\\/:*?"<>|]', "g"), "") : `\u4EA4\u4E92-${i.date}`;
+          const path = `Interactions/${i.date}-${safeTitle}.md`;
+          if (!app.vault.getAbstractFileByPath(path)) {
+            let content = TEMPLATE_INTERACTION.replace("{{title}}", safeTitle).replace(/{{date}}/g, i.date || "");
+            await app.vault.create(path, content);
+            const file = app.vault.getAbstractFileByPath(path);
+            await app.fileManager.processFrontMatter(file, (fm) => {
+              fm.participants = i.participants || [];
+              fm.entropy_avg = i.entropy || 0;
+              fm.depth_reason = i.depth_reason || "";
+              fm.scene_type = i.scene_type || "";
+            });
+          }
+        }
+      }
+      for (const file of selectedNotes) {
+        await app.fileManager.processFrontMatter(file, (fm) => {
+          fm.prm_processed = true;
+        });
+      }
+      new import_obsidian.Notice("\u{1F4BE} \u5199\u5165\u6210\u529F\uFF01\u6240\u6709\u6570\u636E\u5DF2\u5F52\u6863\u81F3\u5E93\u4E2D\u3002");
+      setAuditData(null);
+      loadUnprocessedNotes();
+    } catch (e) {
+      new import_obsidian.Notice("\u5199\u5165\u65F6\u53D1\u751F\u9519\u8BEF: " + String(e));
+    }
+    setLoading(false);
+  };
+  if (auditData) {
+    return /* @__PURE__ */ React.createElement("div", { className: "prm-audit-panel" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-header" }, /* @__PURE__ */ React.createElement("h3", null, "\u{1F50D} AI \u62DF\u5F52\u6863\u5BA1\u6838"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-secondary", onClick: () => setAuditData(null) }, "\u653E\u5F03")), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-scroll" }, auditData.newPeople && auditData.newPeople.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u{1F464} \u62DF\u65B0\u5EFA\u4EBA\u7269 (", auditData.newPeople.length, ")"), auditData.newPeople.map((p, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, /* @__PURE__ */ React.createElement("strong", null, p.name), " ", /* @__PURE__ */ React.createElement("span", { className: "prm-badge" }, p.status), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-meta" }, "\u57CE\u5E02: ", p.city, " | \u6838\u5FC3\u5708: ", p.primary_domain), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, "\u{1F4AC} ", p.reason)))), auditData.newInteractions && auditData.newInteractions.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u{1F91D} \u62DF\u65B0\u589E\u4EA4\u4E92 (", auditData.newInteractions.length, ")"), auditData.newInteractions.map((i, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, /* @__PURE__ */ React.createElement("strong", null, i.title), " ", /* @__PURE__ */ React.createElement("span", { className: "prm-badge" }, i.date), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-meta" }, "\u53C2\u4E0E\u8005: ", (i.participants || []).join(", ")), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, "\u6DF1\u5EA6: ", i.entropy, " | ", i.depth_reason)))), auditData.newEndeavors && auditData.newEndeavors.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u{1F3AF} \u62DF\u65B0\u589E\u5171\u540C\u4E8B\u9879 (", auditData.newEndeavors.length, ")"), auditData.newEndeavors.map((e, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, /* @__PURE__ */ React.createElement("strong", null, e.title), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-meta" }, "\u53C2\u4E0E\u8005: ", (e.participants || []).join(", ")), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, e.description)))), auditData.uncertain && auditData.uncertain.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group prm-audit-group-warning" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u2753 \u9700\u8981\u60A8\u786E\u8BA4\u7684\u4FE1\u606F"), auditData.uncertain.map((u, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, /* @__PURE__ */ React.createElement("strong", null, u.content), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, "\u{1F4A1} ", u.reason))))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-footer" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-write-btn", onClick: confirmAndWrite, disabled: loading }, loading ? "\u5199\u5165\u4E2D..." : "\u{1F4BE} \u786E\u8BA4\u5E76\u4E00\u952E\u5199\u5165\u7CFB\u7EDF")));
+  }
+  return /* @__PURE__ */ React.createElement("div", { className: "prm-ai-archiver" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-card" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-title" }, "\u{1F4E5} \u672A\u5F52\u6863\u65E5\u8BB0\u6C60"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "12px", color: "var(--text-muted)" } }, "\u626B\u63CF\u5230 ", dailyNotes.length, " \u7BC7\u5F85\u5904\u7406\u7B14\u8BB0"), /* @__PURE__ */ React.createElement("div", { className: "prm-notes-list" }, dailyNotes.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "prm-empty-state" }, "\u592A\u68D2\u4E86\uFF01\u6240\u6709\u65E5\u8BB0\u90FD\u5DF2\u5F52\u6863\u5B8C\u6BD5\u3002") : dailyNotes.map((n) => /* @__PURE__ */ React.createElement("label", { key: n.file.path, className: "prm-note-item" }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: selectedNotes.includes(n.file), onChange: () => toggleNote(n.file) }), /* @__PURE__ */ React.createElement("span", null, n.title))))), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-ai-btn", onClick: runAnalysis, disabled: loading || selectedNotes.length === 0 }, loading ? "\u{1F916} \u8111\u529B\u6FC0\u8361\u4E2D..." : "\u2728 \u5F00\u59CB AI \u667A\u80FD\u5206\u6790"));
 };
 var PRMMapViewComponent = (props) => /* @__PURE__ */ React.createElement(ErrorBoundary, null, /* @__PURE__ */ React.createElement(PRMMapApp, { ...props }));
 
 // main.tsx
 var VIEW_TYPE_PRM_MAP = "prm-map-view";
+var DEFAULT_PROMPT_TEMPLATE = `\u4F60\u662F\u4E00\u4E2A\u4EBA\u8109\u5173\u7CFB\u7BA1\u7406 (PRM) \u65E5\u8BB0\u5F52\u6863\u52A9\u624B\u3002\u8BF7\u5206\u6790\u4EE5\u4E0B\u65E5\u8BB0\u5185\u5BB9\uFF0C\u6309\u7167\u89C4\u5219\u63D0\u53D6\u51FA\u7ED3\u6784\u5316\u7684\u5F52\u6863\u65B9\u6848\u3002
+
+## \u5904\u7406\u539F\u5219
+- \u65E5\u8BB0\u662F\u539F\u59CB\u6750\u6599\uFF0C\u9ED8\u8BA4\u4E0D\u5220\u9664\u3001\u4E0D\u91CD\u5199\u3002
+- \u53EA\u628A\u6709\u4EF7\u503C\u7684\u4FE1\u606F\u63D0\u53D6\u5230\u7ED3\u6784\u5316\u7B14\u8BB0\u91CC\u3002
+- \u4E0D\u786E\u5B9A\u7684\u4FE1\u606F\u5217\u4E3A"\u5F85\u786E\u8BA4"\u3002
+- \u4EBA\u7269\u5C5E\u6027\u8981\u5C11\uFF0C\u6B63\u6587\u627F\u8F7D\u7EC6\u8282\u3002
+- \u4EA4\u4E92\u6DF1\u5EA6\u5206\u53EA\u5C5E\u4E8E\u4E00\u6B21\u4EA4\u4E92\uFF0C\u4E0D\u5C5E\u4E8E\u4EBA\u7269\u3002
+
+## \u4EBA\u540D\u89E3\u6790\u89C4\u5219
+- [[\u59D3\u540D]] \u662F\u6700\u5F3A\u4EBA\u7269\u8BC6\u522B\u4FE1\u53F7\u3002
+- @\u59D3\u540D \u662F\u5F3A\u4EBA\u7269\u63D0\u53CA\u4FE1\u53F7\u3002
+- \u5982\u679C\u4EBA\u540D\u65E0\u6CD5\u786E\u8BA4\uFF0C\u5217\u4E3A"\u5F85\u786E\u8BA4\u4EBA\u7269"\u3002
+
+## \u4EA4\u4E92\u6DF1\u5EA6\u8BC4\u5206 (entropy)
+- 0.1-0.2: \u5BD2\u6684\u3001\u793C\u8C8C\u6027\u8054\u7CFB
+- 0.3-0.4: \u6709\u5177\u4F53\u4FE1\u606F\uFF0C\u505C\u7559\u5728\u4E8B\u5B9E\u5C42
+- 0.5-0.6: \u51FA\u73B0\u5BF9\u65B9\u72B6\u6001\u3001\u60C5\u7EEA\u3001\u9700\u6C42
+- 0.7-0.8: \u8FDB\u5165\u52A8\u673A\u3001\u56F0\u5883\u3001\u4EF7\u503C\u89C2
+- 0.9-1.0: \u5173\u7CFB\u7A81\u7834\u3001\u91CD\u5927\u8F6C\u6298
+
+## \u8F93\u51FA\u8981\u6C42
+\u8BF7\u4E25\u683C\u4EE5 JSON \u683C\u5F0F\u8F93\u51FA\u5F52\u6863\u65B9\u6848\uFF0C\u4E0D\u8981\u8F93\u51FA\u4EFB\u4F55 JSON \u4EE5\u5916\u7684\u5185\u5BB9\u3002\u683C\u5F0F\u5982\u4E0B\uFF1A
+\`\`\`json
+{
+  "newPeople": [
+    {
+      "name": "\u59D3\u540D",
+      "status": "\u6D3B\u8DC3",
+      "city": "\u57CE\u5E02",
+      "primary_domain": "\u670B\u53CB",
+      "relationship_domains": ["\u670B\u53CB"],
+      "reason": "\u4E3A\u4EC0\u4E48\u8981\u65B0\u5EFA\u8FD9\u4E2A\u4EBA\u7269"
+    }
+  ],
+  "updatePeople": [
+    {
+      "name": "\u5DF2\u6709\u4EBA\u7269\u59D3\u540D",
+      "updates": { "\u5B57\u6BB5\u540D": "\u65B0\u503C" },
+      "bodyAppend": "\u9700\u8981\u8FFD\u52A0\u5230\u4EBA\u7269\u9875\u6B63\u6587\u7684\u5185\u5BB9\uFF08\u53EF\u9009\uFF09",
+      "reason": "\u4E3A\u4EC0\u4E48\u8981\u66F4\u65B0"
+    }
+  ],
+  "newInteractions": [
+    {
+      "title": "\u4EA4\u4E92\u6807\u9898",
+      "date": "YYYY-MM-DD",
+      "participants": ["\u59D3\u540D1", "\u59D3\u540D2"],
+      "summary": "\u4EA4\u4E92\u6458\u8981",
+      "entropy": 0.5,
+      "depth_reason": "\u6DF1\u5EA6\u8BC4\u5206\u7406\u7531",
+      "scene_type": "\u9762\u8C08"
+    }
+  ],
+  "newEndeavors": [
+    {
+      "title": "\u5171\u540C\u4E8B\u9879\u6807\u9898",
+      "participants": ["\u59D3\u540D1"],
+      "description": "\u4E8B\u9879\u63CF\u8FF0",
+      "status": "\u6D3B\u8DC3"
+    }
+  ],
+  "uncertain": [
+    {
+      "content": "\u5F85\u786E\u8BA4\u7684\u5185\u5BB9\u63CF\u8FF0",
+      "reason": "\u4E3A\u4EC0\u4E48\u65E0\u6CD5\u786E\u8BA4"
+    }
+  ],
+  "skipped": ["\u8DF3\u8FC7\u7684\u5185\u5BB9\u8BF4\u660E"]
+}
+\`\`\``;
+var DEFAULT_SETTINGS = {
+  apiKey: "",
+  apiBaseUrl: "https://api.openai.com/v1",
+  model: "gpt-4o",
+  promptTemplate: DEFAULT_PROMPT_TEMPLATE
+};
 var PRMMapPlugin = class extends import_obsidian2.Plugin {
+  settings = DEFAULT_SETTINGS;
   async onload() {
     console.log("\u52A0\u8F7D PRM Map \u63D2\u4EF6...");
+    await this.loadSettings();
     this.registerView(
       VIEW_TYPE_PRM_MAP,
       (leaf) => new PRMMapView(leaf, this)
@@ -35618,6 +36006,7 @@ var PRMMapPlugin = class extends import_obsidian2.Plugin {
         this.activateView();
       }
     });
+    this.addSettingTab(new PRMMapSettingTab(this.app, this));
     const debouncedRefresh = (0, import_obsidian2.debounce)(() => {
       this.app.workspace.getLeavesOfType(VIEW_TYPE_PRM_MAP).forEach((leaf) => {
         if (leaf.view instanceof PRMMapView) {
@@ -35636,6 +36025,12 @@ var PRMMapPlugin = class extends import_obsidian2.Plugin {
   onunload() {
     console.log("\u5378\u8F7D PRM Map \u63D2\u4EF6\u3002");
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_PRM_MAP);
+  }
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
   }
   async activateView() {
     const { workspace } = this.app;
@@ -35693,6 +36088,56 @@ var PRMMapView = class extends import_obsidian2.ItemView {
   }
   refreshData() {
     this.renderReact();
+  }
+};
+var PRMMapSettingTab = class extends import_obsidian2.PluginSettingTab {
+  plugin;
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "PRM \u4EBA\u8109\u5730\u56FE & AI \u5F52\u6863\u52A9\u7406 \u8BBE\u7F6E" });
+    containerEl.createEl("h3", { text: "\u{1F916} AI \u5927\u6A21\u578B\u914D\u7F6E" });
+    new import_obsidian2.Setting(containerEl).setName("API Base URL").setDesc("\u5927\u6A21\u578B API \u5730\u5740\u3002OpenAI \u517C\u5BB9\u683C\u5F0F\uFF08\u5982 DeepSeek: https://api.deepseek.com/v1\uFF09").addText(
+      (text) => text.setPlaceholder("https://api.openai.com/v1").setValue(this.plugin.settings.apiBaseUrl).onChange(async (value) => {
+        this.plugin.settings.apiBaseUrl = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("API Key").setDesc("\u60A8\u7684\u5927\u6A21\u578B API \u5BC6\u94A5\uFF08\u5B89\u5168\u4FDD\u5B58\u5728\u672C\u5730\uFF0C\u4E0D\u4F1A\u4E0A\u4F20\uFF09").addText((text) => {
+      text.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+        this.plugin.settings.apiKey = value.trim();
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.type = "password";
+    });
+    new import_obsidian2.Setting(containerEl).setName("\u6A21\u578B\u540D\u79F0").setDesc("\u4F7F\u7528\u7684\u6A21\u578B\uFF08\u5982 gpt-4o\u3001deepseek-chat\u3001gemini-pro \u7B49\uFF09").addText(
+      (text) => text.setPlaceholder("gpt-4o").setValue(this.plugin.settings.model).onChange(async (value) => {
+        this.plugin.settings.model = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("\u7CFB\u7EDF\u6307\u4EE4 Prompt \u6A21\u677F").setDesc("AI \u5F52\u6863\u65F6\u4F7F\u7528\u7684 System Prompt\uFF08\u5DF2\u5185\u7F6E\u9ED8\u8BA4\u6A21\u677F\uFF0C\u53EF\u81EA\u5B9A\u4E49\uFF09").addTextArea((text) => {
+      text.setPlaceholder("\u8F93\u5165\u81EA\u5B9A\u4E49\u7CFB\u7EDF\u6307\u4EE4...").setValue(this.plugin.settings.promptTemplate).onChange(async (value) => {
+        this.plugin.settings.promptTemplate = value;
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.rows = 12;
+      text.inputEl.cols = 60;
+      text.inputEl.style.width = "100%";
+      text.inputEl.style.fontFamily = "monospace";
+      text.inputEl.style.fontSize = "12px";
+    });
+    new import_obsidian2.Setting(containerEl).setName("\u91CD\u7F6E Prompt \u6A21\u677F").setDesc("\u5C06\u7CFB\u7EDF\u6307\u4EE4\u6062\u590D\u4E3A\u5185\u7F6E\u9ED8\u8BA4\u6A21\u677F").addButton(
+      (button) => button.setButtonText("\u6062\u590D\u9ED8\u8BA4").onClick(async () => {
+        this.plugin.settings.promptTemplate = DEFAULT_PROMPT_TEMPLATE;
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
   }
 };
 /*! Bundled license information:

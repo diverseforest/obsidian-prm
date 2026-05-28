@@ -1,4 +1,4 @@
-import { App, TFile } from "obsidian";
+import { App, TFile, TFolder, requestUrl, Notice } from "obsidian";
 import * as React from "react";
 import { resolveCoordinates } from "./utils";
 import PRMMapPlugin from "./main";
@@ -65,6 +65,23 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
     const [filterDomain, setFilterDomain] = React.useState<string>("全部");
     const [filterContactWarning, setFilterContactWarning] = React.useState<string>("全部");
     const [filterRadius, setFilterRadius] = React.useState<number>(0);
+
+    const [activeTab, setActiveTab] = React.useState<"radar" | "ai">("radar");
+    const [isInitialized, setIsInitialized] = React.useState(true);
+
+    React.useEffect(() => {
+        const checkFolders = () => {
+            const folders = ["People", "Interactions", "Endeavors", "Daily", "Templates"];
+            let allExist = true;
+            for (const f of folders) {
+                if (!(app.vault.getAbstractFileByPath(f) instanceof TFolder)) {
+                    allExist = false;
+                }
+            }
+            setIsInitialized(allExist);
+        };
+        checkFolders();
+    }, [app]);
 
     // 地图引用
     const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -386,9 +403,13 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
     const uniqueContactCount = filteredPeople.length;
     const totalLocationsCount = filteredPeople.reduce((sum, p) => sum + p.cityList.length, 0);
 
+    if (!isInitialized) {
+        return <OneClickSetup app={app} onComplete={() => setIsInitialized(true)} />;
+    }
+
     return (
         <div className="prm-map-layout">
-            <div className="prm-map-wrapper">
+            <div className="prm-map-wrapper" style={{ display: activeTab === "radar" ? "block" : "none" }}>
                 <div id="prm-leaflet-map" ref={mapContainerRef}></div>
                 
                 {pickingFor && (
@@ -398,7 +419,19 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
                 )}
             </div>
 
-            <div className="prm-sidebar">
+            <div className="prm-sidebar" style={{ width: "100%", maxWidth: activeTab === "ai" ? "100%" : "350px", transition: "max-width 0.3s ease" }}>
+                <div className="prm-tab-switcher">
+                    <button className={`prm-tab-btn ${activeTab === "radar" ? "active" : ""}`} onClick={() => setActiveTab("radar")}>
+                        📍 地理雷达
+                    </button>
+                    <button className={`prm-tab-btn ${activeTab === "ai" ? "active" : ""}`} onClick={() => setActiveTab("ai")}>
+                        🤖 AI 归档助理
+                    </button>
+                </div>
+                
+                {activeTab === "ai" && <PRMAIArchiver app={app} plugin={plugin} />}
+                
+                <div style={{ display: activeTab === "radar" ? "flex" : "none", flexDirection: "column", height: "100%" }}>
                 <div className="prm-dashboard-card">
                     <div className="prm-dashboard-title">📍 人脉数据雷达</div>
                     <div className="prm-dashboard-grid">
@@ -518,7 +551,436 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
                         )}
                     </div>
                 </div>
+                </div>
             </div>
+        </div>
+    );
+};
+
+// ============================================================
+// One-Click Setup & Templates
+// ============================================================
+const TEMPLATE_PEOPLE = `---
+categories:
+  - "[[People]]"
+aliases: []
+status: 活跃
+relationship_domains:
+  - 朋友
+primary_domain: 朋友
+relationship_stage:
+last_contact:
+trust_in_me:
+trust_in_solution:
+city:
+life_stage:
+---
+
+# {{title}}
+
+## 基本信息
+## 关系画像
+## 关系上下文
+## 家庭教育观察
+## 重要观察
+## 后续行动
+- [ ] 
+
+## 共同事项
+![[Endeavors.base#Person]]
+
+## 交互
+![[Interactions.base#Person]]
+`;
+
+const TEMPLATE_INTERACTION = `---
+categories:
+  - "[[Interactions]]"
+date: {{date}}
+participants: []
+interaction_context:
+  - 私人
+business_intent: 无
+scene_type: 面谈
+location_city: 
+location_type: 
+location_place: ""
+topics: []
+self_energy: 
+self_openness: 
+self_mode: 平衡
+self_aftertaste: 一般
+entropy_max: 
+entropy_avg: 
+entropy_map: {}
+depth_reason: ""
+relationship_delta: ""
+linked_endeavors: []
+---
+
+# {{title}}
+
+## 事实
+## 摘要（按人）
+## 交流深度判断
+- depth reason:
+- relationship delta:
+
+## 后续行动
+- [ ] 
+`;
+
+const TEMPLATE_ENDEAVOR = `---
+categories:
+  - "[[Endeavors]]"
+status: 活跃
+endeavor_type: 项目
+participants: []
+relationship_domains:
+  - 朋友
+start_date:
+end_date:
+importance:
+energy_cost:
+relationship_impact:
+outcome:
+linked_interactions: []
+next_review_date:
+---
+
+# {{title}}
+
+## 初衷
+## 参与者
+## 目标
+## 当前状态
+## 分工
+## 关键互动
+## 关系观察
+## 后续行动
+- [ ] 
+## 结果复盘
+`;
+
+const TEMPLATE_DAILY = `---
+date: {{date}}
+prm_processed: false
+---
+
+记录一下今天的见闻...
+`;
+
+const OneClickSetup: React.FC<{ app: App, onComplete: () => void }> = ({ app, onComplete }) => {
+    const [loading, setLoading] = React.useState(false);
+
+    const handleInitialize = async () => {
+        setLoading(true);
+        try {
+            const folders = ["People", "Interactions", "Endeavors", "Daily", "Templates"];
+            for (const f of folders) {
+                if (!(app.vault.getAbstractFileByPath(f) instanceof TFolder)) {
+                    await app.vault.createFolder(f);
+                }
+            }
+
+            const writeTemplate = async (path: string, content: string) => {
+                if (!app.vault.getAbstractFileByPath(path)) {
+                    await app.vault.create(path, content);
+                }
+            };
+
+            await writeTemplate("Templates/PRM-人脉模板.md", TEMPLATE_PEOPLE);
+            await writeTemplate("Templates/PRM-交互记录模板.md", TEMPLATE_INTERACTION);
+            await writeTemplate("Templates/PRM-共同事项模板.md", TEMPLATE_ENDEAVOR);
+            await writeTemplate("Templates/PRM-日记模板.md", TEMPLATE_DAILY);
+
+            const today = new Date().toISOString().split('T')[0];
+            await writeTemplate(`Daily/${today}-PRM新手测试.md`, `---\ndate: ${today}\nprm_processed: false\n---\n\n今天下午见到了小明。他说他最近在郑州忙一些教育相关的事情。我们聊得很深入，感觉关系又近了一步。\n`);
+
+            new Notice("PRM 工作区初始化成功！");
+            onComplete();
+        } catch (e) {
+            new Notice("初始化失败: " + e);
+        }
+        setLoading(false);
+    };
+
+    return (
+        <div className="prm-setup-container">
+            <h2 className="prm-setup-title">欢迎使用 PRM Map & AI Assistant 🚀</h2>
+            <p className="prm-setup-desc">检测到您的库中缺少基础的 PRM 文件夹结构。只需点击下方按钮，我们将自动为您生成所需的目录和标准模板。</p>
+            <button className="prm-btn-primary prm-setup-btn" onClick={handleInitialize} disabled={loading}>
+                {loading ? "正在初始化..." : "✨ 一键初始化 PRM 工作区"}
+            </button>
+        </div>
+    );
+};
+
+// ============================================================
+// AI Archiver
+// ============================================================
+interface DailyNote {
+    file: TFile;
+    title: string;
+    date: string;
+}
+
+const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plugin }) => {
+    const [dailyNotes, setDailyNotes] = React.useState<DailyNote[]>([]);
+    const [selectedNotes, setSelectedNotes] = React.useState<TFile[]>([]);
+    const [loading, setLoading] = React.useState(false);
+    const [auditData, setAuditData] = React.useState<any>(null);
+
+    React.useEffect(() => {
+        loadUnprocessedNotes();
+    }, [app]);
+
+    const loadUnprocessedNotes = () => {
+        const folder = app.vault.getAbstractFileByPath("Daily");
+        if (!(folder instanceof TFolder)) return;
+
+        const files: DailyNote[] = [];
+        folder.children.forEach((file: any) => {
+            if (file instanceof TFile && file.extension === "md") {
+                const cache = app.metadataCache.getFileCache(file);
+                if (!cache?.frontmatter || cache.frontmatter.prm_processed !== true) {
+                    files.push({
+                        file,
+                        title: file.basename,
+                        date: cache?.frontmatter?.date || "未知日期"
+                    });
+                }
+            }
+        });
+        setDailyNotes(files);
+        setSelectedNotes(files.map(f => f.file));
+    };
+
+    const toggleNote = (file: TFile) => {
+        setSelectedNotes(prev => prev.includes(file) ? prev.filter(f => f.path !== file.path) : [...prev, file]);
+    };
+
+    const runAnalysis = async () => {
+        if (selectedNotes.length === 0) {
+            new Notice("请选择至少一篇日记！");
+            return;
+        }
+
+        if (!plugin.settings.apiKey) {
+            new Notice("错误：请先在插件设置中配置大模型 API Key！");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            let combinedContent = "";
+            for (const file of selectedNotes) {
+                const content = await app.vault.cachedRead(file);
+                combinedContent += `\n\n--- 日记: ${file.basename} ---\n` + content;
+            }
+
+            const url = plugin.settings.apiBaseUrl.endsWith("/chat/completions") 
+                ? plugin.settings.apiBaseUrl 
+                : plugin.settings.apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+
+            const response = await requestUrl({
+                url: url,
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${plugin.settings.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: plugin.settings.model,
+                    messages: [
+                        { role: "system", content: plugin.settings.promptTemplate },
+                        { role: "user", content: "请分析以下日记内容，并严格按照 JSON 格式输出拟归档方案：\n" + combinedContent }
+                    ],
+                    temperature: 0.2
+                })
+            });
+
+            if (response.status !== 200) {
+                throw new Error(response.text);
+            }
+
+            const aiContent = response.json.choices[0].message.content;
+            const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/);
+            const jsonString = jsonMatch ? jsonMatch[1] : aiContent;
+            
+            setAuditData(JSON.parse(jsonString));
+            new Notice("✨ AI 分析完成！请审核。");
+
+        } catch (e) {
+            console.error(e);
+            new Notice("分析失败，请检查设置中的接口配置和网络: " + String(e));
+        }
+        setLoading(false);
+    };
+
+    const confirmAndWrite = async () => {
+        setLoading(true);
+        try {
+            // Write new people
+            if (auditData.newPeople) {
+                for (const p of auditData.newPeople) {
+                    const path = `People/${p.name}.md`;
+                    if (!app.vault.getAbstractFileByPath(path)) {
+                        let content = TEMPLATE_PEOPLE.replace("{{title}}", p.name);
+                        await app.vault.create(path, content);
+                        const file = app.vault.getAbstractFileByPath(path) as TFile;
+                        await app.fileManager.processFrontMatter(file, (fm) => {
+                            fm.status = p.status || "活跃";
+                            fm.city = p.city || "";
+                            fm.primary_domain = p.primary_domain || "";
+                            if (p.relationship_domains) fm.relationship_domains = p.relationship_domains;
+                        });
+                    }
+                }
+            }
+
+            // Update people
+            if (auditData.updatePeople) {
+                for (const p of auditData.updatePeople) {
+                    const file = app.vault.getAbstractFileByPath(`People/${p.name}.md`);
+                    if (file instanceof TFile && p.updates) {
+                        await app.fileManager.processFrontMatter(file, (fm) => {
+                            for (const [k, v] of Object.entries(p.updates)) {
+                                fm[k] = v;
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Write interactions
+            if (auditData.newInteractions) {
+                for (const i of auditData.newInteractions) {
+                    const safeTitle = i.title ? i.title.replace(new RegExp('[\\\\/:*?"<>|]', 'g'), "") : `交互-${i.date}`;
+                    const path = `Interactions/${i.date}-${safeTitle}.md`;
+                    if (!app.vault.getAbstractFileByPath(path)) {
+                        let content = TEMPLATE_INTERACTION.replace("{{title}}", safeTitle).replace(/{{date}}/g, i.date || "");
+                        await app.vault.create(path, content);
+                        const file = app.vault.getAbstractFileByPath(path) as TFile;
+                        await app.fileManager.processFrontMatter(file, (fm) => {
+                            fm.participants = i.participants || [];
+                            fm.entropy_avg = i.entropy || 0;
+                            fm.depth_reason = i.depth_reason || "";
+                            fm.scene_type = i.scene_type || "";
+                        });
+                    }
+                }
+            }
+
+            // Update original daily notes
+            for (const file of selectedNotes) {
+                await app.fileManager.processFrontMatter(file, (fm) => {
+                    fm.prm_processed = true;
+                });
+            }
+
+            new Notice("💾 写入成功！所有数据已归档至库中。");
+            setAuditData(null);
+            loadUnprocessedNotes();
+
+        } catch (e) {
+            new Notice("写入时发生错误: " + String(e));
+        }
+        setLoading(false);
+    };
+
+    if (auditData) {
+        return (
+            <div className="prm-audit-panel">
+                <div className="prm-audit-header">
+                    <h3>🔍 AI 拟归档审核</h3>
+                    <button className="prm-btn-secondary" onClick={() => setAuditData(null)}>放弃</button>
+                </div>
+
+                <div className="prm-audit-scroll">
+                    {auditData.newPeople && auditData.newPeople.length > 0 && (
+                        <div className="prm-audit-group">
+                            <div className="prm-audit-group-title">👤 拟新建人物 ({auditData.newPeople.length})</div>
+                            {auditData.newPeople.map((p: any, idx: number) => (
+                                <div key={idx} className="prm-audit-card">
+                                    <strong>{p.name}</strong> <span className="prm-badge">{p.status}</span>
+                                    <div className="prm-audit-meta">城市: {p.city} | 核心圈: {p.primary_domain}</div>
+                                    <div className="prm-audit-reason">💬 {p.reason}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {auditData.newInteractions && auditData.newInteractions.length > 0 && (
+                        <div className="prm-audit-group">
+                            <div className="prm-audit-group-title">🤝 拟新增交互 ({auditData.newInteractions.length})</div>
+                            {auditData.newInteractions.map((i: any, idx: number) => (
+                                <div key={idx} className="prm-audit-card">
+                                    <strong>{i.title}</strong> <span className="prm-badge">{i.date}</span>
+                                    <div className="prm-audit-meta">参与者: {(i.participants || []).join(", ")}</div>
+                                    <div className="prm-audit-reason">深度: {i.entropy} | {i.depth_reason}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {auditData.newEndeavors && auditData.newEndeavors.length > 0 && (
+                        <div className="prm-audit-group">
+                            <div className="prm-audit-group-title">🎯 拟新增共同事项 ({auditData.newEndeavors.length})</div>
+                            {auditData.newEndeavors.map((e: any, idx: number) => (
+                                <div key={idx} className="prm-audit-card">
+                                    <strong>{e.title}</strong>
+                                    <div className="prm-audit-meta">参与者: {(e.participants || []).join(", ")}</div>
+                                    <div className="prm-audit-reason">{e.description}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {auditData.uncertain && auditData.uncertain.length > 0 && (
+                        <div className="prm-audit-group prm-audit-group-warning">
+                            <div className="prm-audit-group-title">❓ 需要您确认的信息</div>
+                            {auditData.uncertain.map((u: any, idx: number) => (
+                                <div key={idx} className="prm-audit-card">
+                                    <strong>{u.content}</strong>
+                                    <div className="prm-audit-reason">💡 {u.reason}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="prm-audit-footer">
+                    <button className="prm-btn-primary prm-write-btn" onClick={confirmAndWrite} disabled={loading}>
+                        {loading ? "写入中..." : "💾 确认并一键写入系统"}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="prm-ai-archiver">
+            <div className="prm-dashboard-card">
+                <div className="prm-dashboard-title">📥 未归档日记池</div>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>扫描到 {dailyNotes.length} 篇待处理笔记</p>
+                <div className="prm-notes-list">
+                    {dailyNotes.length === 0 ? (
+                        <div className="prm-empty-state">太棒了！所有日记都已归档完毕。</div>
+                    ) : (
+                        dailyNotes.map(n => (
+                            <label key={n.file.path} className="prm-note-item">
+                                <input type="checkbox" checked={selectedNotes.includes(n.file)} onChange={() => toggleNote(n.file)} />
+                                <span>{n.title}</span>
+                            </label>
+                        ))
+                    )}
+                </div>
+            </div>
+            
+            <button className="prm-btn-primary prm-ai-btn" onClick={runAnalysis} disabled={loading || selectedNotes.length === 0}>
+                {loading ? "🤖 脑力激荡中..." : "✨ 开始 AI 智能分析"}
+            </button>
         </div>
     );
 };

@@ -1251,3 +1251,171 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .theme-dark .prm-marker-precise {
     border: 2px solid #fff !important;
 }
+
+/* ==========================================================================
+   7. V1.2 MVP UI (Tabs, Setup, AI Archiver)
+   ========================================================================== */
+
+/* Tab Switcher */
+.prm-tab-switcher {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    background: var(--background-secondary);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+}
+.prm-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.prm-tab-btn:hover {
+    color: var(--text-normal);
+}
+.prm-tab-btn.active {
+    background: var(--background-primary);
+    color: var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Setup & AI Archiver */
+.prm-setup-container {
+    padding: 40px;
+    text-align: center;
+    max-width: 500px;
+    margin: 40px auto;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+}
+.prm-setup-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+    color: var(--text-normal);
+}
+.prm-setup-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    line-height: 1.6;
+}
+.prm-btn-primary {
+    background: var(--interactive-accent);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+}
+.prm-btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(var(--interactive-accent-rgb), 0.3);
+}
+.prm-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.prm-btn-secondary {
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.prm-ai-archiver {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.prm-notes-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.prm-note-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 6px;
+    background: var(--background-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+}
+.prm-ai-btn {
+    margin-top: 16px;
+}
+
+/* Audit Panel */
+.prm-audit-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.prm-audit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.prm-audit-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.prm-audit-group-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: var(--interactive-accent);
+}
+.prm-audit-group-warning .prm-audit-group-title {
+    color: var(--color-orange, #f08c00);
+}
+.prm-audit-card {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+.prm-audit-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin: 4px 0;
+}
+.prm-audit-reason {
+    color: var(--text-normal);
+    background: var(--background-primary);
+    padding: 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+}
+.prm-audit-footer {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--background-modifier-border);
+}
