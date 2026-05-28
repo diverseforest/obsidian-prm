@@ -1,10 +1,20 @@
 # Obsidian PRM Map & AI Assistant (人脉地理雷达与 AI 归档助理) 🗺️🤖
 
-`obsidian-prm-map` 是专为 Obsidian 人脉管理（PRM, Personal Relationship Management）系统打造的地理可视化与 AI 智能化决策辅助插件。
+`obsidian-prm` 是专为 Obsidian 人脉管理（PRM, Personal Relationship Management）系统打造的地理可视化与 AI 智能化决策辅助插件。
 
 它不仅能将您记录在 Markdown 文档中的联系人自动转化为地图上的可视化标记，提供多维数据过滤、差旅距离雷达、一键联系记录以及完全离线的精准坐标拾取功能；在 **V1.2 版本**中，它更引入了 **AI 智能日记归档助理** 与 **一键新手建库** 功能，帮助您通过日常日记自动沉淀人脉数据，轻松构建隐私安全、极简优雅的个人人脉数据库。
 
 本插件遵循 **零配置（Zero-Configuration）** 和 **隐私优先（Privacy-First）** 原则，无需注册任何高德/百度等第三方地图 API 密钥，大模型接口完全本地配置并支持自定义 API 代理端点（支持 OpenAI、DeepSeek、Gemini 等，Bring Your Own Key），开箱即用，对社区用户极其友好。
+
+---
+
+## 🔒 隐私与 API Key 说明
+
+* **API Key 不会发送给插件作者**：插件没有作者服务器、遥测或远程配置。AI 请求只会发送到您在设置中填写的 `API Base URL`。
+* **日记内容会发送到模型服务商**：使用 AI 归档时，您勾选的 `Daily/` 日记正文会作为请求内容发送到配置的 API 服务。高隐私数据建议使用本地 OpenAI-compatible 模型服务。
+* **本地模型接口支持空 Key**：当 `API Base URL` 是 `localhost`、`127.0.0.1` 或 `::1` 时，插件允许 API Key 留空，并且不会发送 `Authorization` 请求头。
+* **远程接口建议使用 HTTPS**：如果远程 API 使用 `http://`，插件会在请求前强提示，因为 API Key 和日记内容可能以明文经过网络传输。
+* **本地保存不是加密保存**：API Key 会保存在 Obsidian 插件本地配置中。请不要把 `.obsidian/plugins/obsidian-prm/data.json` 提交到 Git、公开仓库或共享给他人；本仓库 `.gitignore` 已默认忽略该文件。
 
 ---
 
@@ -22,7 +32,7 @@
 
 ### 2. 🤖 AI 日记自动归档助理 (PRM AI Archiver)
 * **自然语言沉淀人脉**：无需繁琐地手动新建卡片与填写元数据，您可以像平时一样在 `Daily/` 目录中记日记。AI 归档助理将自动读取日记文本，提取关键实体。
-* **零配置/BYOK 模型接入**：支持配置任何 OpenAI 兼容格式的 API 接口（如 DeepSeek、Gemini、本地 Ollama 或 OpenAI）。数据完全本地保存并通过 Obsidian 原生 `requestUrl` 请求，安全防跨域。
+* **零配置/BYOK 模型接入**：支持配置任何 OpenAI 兼容格式的 API 接口（如 OpenAI、DeepSeek、Gemini、本地 Ollama、LM Studio 等）。API Key 本地保存，AI 请求通过 Obsidian 原生 `requestUrl` 直接发送到您配置的端点。
 * **全智能高精度提取**：
   - **新人物识别**：自动感知文本中提及的新人名（支持双链格式 `[[姓名]]` 或 `@姓名` 强识别信号），自动建议新建人脉卡片并匹配标签和居住城市。
   - **已有人脉更新**：自动检索现有库，提出对已有联系人元数据（如 `city`、`last_contact` 等）的智能更新建议。
@@ -52,7 +62,7 @@
 该插件基于 **React 18**、**Leaflet.js** 以及 **Obsidian API** 构建。代码结构清晰明了，便于后期维护与升级：
 
 ```
-obsidian-prm-map/
+obsidian-prm/
 ├── main.tsx             # 插件入口文件（负责注册视图、生命周期、监听元数据缓存变化、大模型设置面板及防抖机制）
 ├── view.tsx             # 核心 UI 视图（包含 React 状态流、Leaflet 初始化、一键建库向导、AI 归档助理组件与待审核面板）
 ├── utils.ts             # 辅助工具包（内置中国各大城市经纬度对照字典与距离解析算法）
@@ -124,11 +134,11 @@ depth_reason: "谈及对方关于职业转型期方向的深度迷茫和困惑"
 
 ## 🚀 极速上手指南
 
-1. **安装并启用插件**：在您的 Obsidian 库中激活 `obsidian-prm-map`。
+1. **安装并启用插件**：在您的 Obsidian 库中激活 `obsidian-prm`。
 2. **一键建库**：如果您的库是全新的或缺失基础结构，右侧侧边栏会弹出新手初始化提示，点击 **“✨ 一键初始化 PRM 工作区”** 即可在 1秒内搭好全套目录与标准模板。
-3. **配置 AI 模型**：进入 Obsidian 插件设置面板，在大模型配置一栏输入您的 API 密钥（Bring Your Own Key），配置 API Base URL 与模型名称（内置经过精心打磨的 Prompt 模板）。
+3. **配置 AI 模型**：进入 Obsidian 插件设置面板，配置 API Base URL、模型名称和 API Key。云端 API 通常需要 Key；本地 `localhost` 模型服务可留空。
 4. **日常日记**：在生成的 `Daily/` 文件夹下像日常一样随心记录碰面与对话见闻（支持用 `[[人名]]` 或 `@人名` 语法帮助识别）。
-5. **AI 智能归档**：点击侧边栏 **“🤖 AI 归档助理”** 选项卡，勾选待归档日记并点击 **“开始 AI 智能分析”**。
+5. **AI 智能归档**：点击侧边栏 **“🤖 AI 归档助理”** 选项卡，勾选待归档日记并点击 **“开始 AI 智能分析”**。发送前插件会显示目标 API 地址和隐私提示。
 6. **一键确认导入**：在精美的待审核面板中对 AI 提取出的人物、事件、深度评分及存疑项目进行检查，点击 **“确认并一键写入系统”**，见证数据瞬间原子化归入您的 PRM 系统！
 7. **地理雷达分析**：随时切回 **“📍 地理雷达”** 选项卡，直观查看联系人在地图上的群聚状态、色彩归类，开启差旅雷达探索拜访最优路线。
 

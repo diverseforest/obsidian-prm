@@ -35292,7 +35292,7 @@ var ErrorBoundary = class extends React.Component {
     return this.props.children;
   }
 };
-var PRMMapApp = ({ app, plugin }) => {
+var PRMMapApp = ({ app, plugin, refreshKey }) => {
   const [allPeople, setAllPeople] = React.useState([]);
   const [filteredPeople, setFilteredPeople] = React.useState([]);
   const [selectedLocation, setSelectedLocation] = React.useState(null);
@@ -35321,6 +35321,7 @@ var PRMMapApp = ({ app, plugin }) => {
   const mapRef = React.useRef(null);
   const markerClusterGroupRef = React.useRef(null);
   const tileLayerRef = React.useRef(null);
+  const resizeObserverRef = React.useRef(null);
   const loadPeopleData = React.useCallback(() => {
     const files = app.vault.getMarkdownFiles();
     const peopleFiles = files.filter((f) => f.path.startsWith("People/") && !f.name.includes("Template"));
@@ -35369,7 +35370,17 @@ var PRMMapApp = ({ app, plugin }) => {
   }, [app]);
   React.useEffect(() => {
     loadPeopleData();
-  }, [loadPeopleData]);
+  }, [loadPeopleData, refreshKey]);
+  React.useEffect(() => {
+    return () => {
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      markerClusterGroupRef.current = null;
+      tileLayerRef.current = null;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, []);
   React.useEffect(() => {
     let result = allPeople;
     if (filterStatus !== "\u5168\u90E8")
@@ -35435,6 +35446,7 @@ var PRMMapApp = ({ app, plugin }) => {
         mapRef.current?.invalidateSize();
       });
       resizeObserver.observe(mapContainerRef.current);
+      resizeObserverRef.current = resizeObserver;
     }
     const map = mapRef.current;
     if (!map)
@@ -35758,6 +35770,53 @@ prm_processed: false
   };
   return /* @__PURE__ */ React.createElement("div", { className: "prm-setup-container" }, /* @__PURE__ */ React.createElement("h2", { className: "prm-setup-title" }, "\u6B22\u8FCE\u4F7F\u7528 PRM Map & AI Assistant \u{1F680}"), /* @__PURE__ */ React.createElement("p", { className: "prm-setup-desc" }, "\u68C0\u6D4B\u5230\u60A8\u7684\u5E93\u4E2D\u7F3A\u5C11\u57FA\u7840\u7684 PRM \u6587\u4EF6\u5939\u7ED3\u6784\u3002\u53EA\u9700\u70B9\u51FB\u4E0B\u65B9\u6309\u94AE\uFF0C\u6211\u4EEC\u5C06\u81EA\u52A8\u4E3A\u60A8\u751F\u6210\u6240\u9700\u7684\u76EE\u5F55\u548C\u6807\u51C6\u6A21\u677F\u3002"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary prm-setup-btn", onClick: handleInitialize, disabled: loading }, loading ? "\u6B63\u5728\u521D\u59CB\u5316..." : "\u2728 \u4E00\u952E\u521D\u59CB\u5316 PRM \u5DE5\u4F5C\u533A"));
 };
+var sanitizeFileName = (value, fallback) => {
+  const cleaned = String(value || fallback).replace(/\[\[|\]\]/g, "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();
+  return (cleaned || fallback).slice(0, 100);
+};
+var extractJsonObject = (content) => {
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("AI \u54CD\u5E94\u4E3A\u7A7A\uFF0C\u672A\u627E\u5230\u53EF\u89E3\u6790\u7684 JSON\u3002");
+  }
+  const fenced = content.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
+  const candidate = fenced ? fenced[1] : content;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("AI \u54CD\u5E94\u4E2D\u672A\u627E\u5230 JSON \u5BF9\u8C61\u3002");
+  }
+  return JSON.parse(candidate.slice(start, end + 1));
+};
+var isLocalApiBaseUrl = (apiBaseUrl) => {
+  try {
+    const parsed = new URL(apiBaseUrl);
+    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+var isPlainHttpRemote = (apiBaseUrl) => {
+  try {
+    const parsed = new URL(apiBaseUrl);
+    return parsed.protocol === "http:" && !isLocalApiBaseUrl(apiBaseUrl);
+  } catch {
+    return false;
+  }
+};
+var appendSection = (content, heading, text) => {
+  const body = String(text || "").trim();
+  if (!body)
+    return content;
+  return content.includes(`${heading}
+`) ? content.replace(`${heading}
+`, `${heading}
+${body}
+`) : `${content.trimEnd()}
+
+${heading}
+${body}
+`;
+};
 var PRMAIArchiver = ({ app, plugin }) => {
   const [dailyNotes, setDailyNotes] = React.useState([]);
   const [selectedNotes, setSelectedNotes] = React.useState([]);
@@ -35794,10 +35853,33 @@ var PRMAIArchiver = ({ app, plugin }) => {
       new import_obsidian.Notice("\u8BF7\u9009\u62E9\u81F3\u5C11\u4E00\u7BC7\u65E5\u8BB0\uFF01");
       return;
     }
-    if (!plugin.settings.apiKey) {
-      new import_obsidian.Notice("\u9519\u8BEF\uFF1A\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u914D\u7F6E\u5927\u6A21\u578B API Key\uFF01");
+    const apiBaseUrl = plugin.settings.apiBaseUrl.trim();
+    const isLocalApi = isLocalApiBaseUrl(apiBaseUrl);
+    if (!apiBaseUrl) {
+      new import_obsidian.Notice("\u9519\u8BEF\uFF1A\u8BF7\u5148\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u914D\u7F6E API Base URL\uFF01");
       return;
     }
+    if (!plugin.settings.apiKey && !isLocalApi) {
+      new import_obsidian.Notice("\u9519\u8BEF\uFF1A\u4E91\u7AEF API \u9700\u8981\u914D\u7F6E API Key\u3002\u672C\u5730 localhost \u63A5\u53E3\u53EF\u7559\u7A7A\u3002");
+      return;
+    }
+    if (isPlainHttpRemote(apiBaseUrl)) {
+      const proceed = confirm(`\u5F53\u524D API Base URL \u4F7F\u7528\u975E HTTPS \u8FDC\u7A0B\u5730\u5740\uFF1A
+${apiBaseUrl}
+
+API Key \u548C\u9009\u4E2D\u7684\u65E5\u8BB0\u5185\u5BB9\u53EF\u80FD\u4EE5\u660E\u6587\u7ECF\u8FC7\u7F51\u7EDC\u4F20\u8F93\u3002\u4ECD\u8981\u7EE7\u7EED\u5417\uFF1F`);
+      if (!proceed)
+        return;
+    }
+    const privacyConfirmed = confirm(isLocalApi ? `\u5C06\u628A ${selectedNotes.length} \u7BC7\u65E5\u8BB0\u53D1\u9001\u5230\u672C\u673A\u6A21\u578B\u670D\u52A1\uFF1A
+${apiBaseUrl}
+
+\u8BF7\u786E\u8BA4\u8BE5\u672C\u5730\u670D\u52A1\u4E0D\u4F1A\u8F6C\u53D1\u5230\u8FDC\u7A0B\u670D\u52A1\u5668\u3002` : `\u5C06\u628A ${selectedNotes.length} \u7BC7\u65E5\u8BB0\u5185\u5BB9\u53D1\u9001\u5230\u4EE5\u4E0B AI API \u670D\u52A1\uFF1A
+${apiBaseUrl}
+
+\u63D2\u4EF6\u4E0D\u4F1A\u628A API Key \u53D1\u9001\u7ED9\u4F5C\u8005\u670D\u52A1\u5668\uFF0C\u4F46\u8BE5 API \u670D\u52A1\u5546\u4F1A\u6536\u5230\u8BF7\u6C42\u5185\u5BB9\u3002\u9AD8\u9690\u79C1\u6570\u636E\u5EFA\u8BAE\u6539\u7528\u672C\u5730\u6A21\u578B\u670D\u52A1\u3002`);
+    if (!privacyConfirmed)
+      return;
     setLoading(true);
     try {
       let combinedContent = "";
@@ -35808,14 +35890,17 @@ var PRMAIArchiver = ({ app, plugin }) => {
 --- \u65E5\u8BB0: ${file.basename} ---
 ` + content;
       }
-      const url = plugin.settings.apiBaseUrl.endsWith("/chat/completions") ? plugin.settings.apiBaseUrl : plugin.settings.apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+      const url = apiBaseUrl.endsWith("/chat/completions") ? apiBaseUrl : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+      const headers = {
+        "Content-Type": "application/json"
+      };
+      if (plugin.settings.apiKey) {
+        headers.Authorization = `Bearer ${plugin.settings.apiKey}`;
+      }
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${plugin.settings.apiKey}`
-        },
+        headers,
         body: JSON.stringify({
           model: plugin.settings.model,
           messages: [
@@ -35828,10 +35913,12 @@ var PRMAIArchiver = ({ app, plugin }) => {
       if (response.status !== 200) {
         throw new Error(response.text);
       }
-      const aiContent = response.json.choices[0].message.content;
-      const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/);
-      const jsonString = jsonMatch ? jsonMatch[1] : aiContent;
-      setAuditData(JSON.parse(jsonString));
+      const aiContent = response.json?.choices?.[0]?.message?.content;
+      const parsed = extractJsonObject(aiContent);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("AI \u54CD\u5E94 JSON \u4E0D\u662F\u6709\u6548\u7684\u5F52\u6863\u5BF9\u8C61\u3002");
+      }
+      setAuditData(parsed);
       new import_obsidian.Notice("\u2728 AI \u5206\u6790\u5B8C\u6210\uFF01\u8BF7\u5BA1\u6838\u3002");
     } catch (e) {
       console.error(e);
@@ -35844,9 +35931,11 @@ var PRMAIArchiver = ({ app, plugin }) => {
     try {
       if (auditData.newPeople) {
         for (const p of auditData.newPeople) {
-          const path = `People/${p.name}.md`;
+          const safeName = sanitizeFileName(p.name, "\u672A\u547D\u540D\u4EBA\u7269");
+          const path = `People/${safeName}.md`;
           if (!app.vault.getAbstractFileByPath(path)) {
-            let content = TEMPLATE_PEOPLE.replace("{{title}}", p.name);
+            let content = TEMPLATE_PEOPLE.replace("{{title}}", safeName);
+            content = appendSection(content, "## \u5173\u7CFB\u4E0A\u4E0B\u6587", p.reason);
             await app.vault.create(path, content);
             const file = app.vault.getAbstractFileByPath(path);
             await app.fileManager.processFrontMatter(file, (fm) => {
@@ -35861,22 +35950,32 @@ var PRMAIArchiver = ({ app, plugin }) => {
       }
       if (auditData.updatePeople) {
         for (const p of auditData.updatePeople) {
-          const file = app.vault.getAbstractFileByPath(`People/${p.name}.md`);
-          if (file instanceof import_obsidian.TFile && p.updates) {
-            await app.fileManager.processFrontMatter(file, (fm) => {
-              for (const [k, v] of Object.entries(p.updates)) {
-                fm[k] = v;
-              }
-            });
+          const safeName = sanitizeFileName(p.name, "\u672A\u547D\u540D\u4EBA\u7269");
+          const file = app.vault.getAbstractFileByPath(`People/${safeName}.md`);
+          if (file instanceof import_obsidian.TFile) {
+            if (p.updates) {
+              await app.fileManager.processFrontMatter(file, (fm) => {
+                for (const [k, v] of Object.entries(p.updates)) {
+                  fm[k] = v;
+                }
+              });
+            }
+            if (p.bodyAppend) {
+              const current = await app.vault.cachedRead(file);
+              await app.vault.modify(file, appendSection(current, "## \u91CD\u8981\u89C2\u5BDF", p.bodyAppend));
+            }
           }
         }
       }
       if (auditData.newInteractions) {
         for (const i of auditData.newInteractions) {
-          const safeTitle = i.title ? i.title.replace(new RegExp('[\\\\/:*?"<>|]', "g"), "") : `\u4EA4\u4E92-${i.date}`;
-          const path = `Interactions/${i.date}-${safeTitle}.md`;
+          const safeDate = sanitizeFileName(i.date, "\u672A\u77E5\u65E5\u671F");
+          const safeTitle = sanitizeFileName(i.title, `\u4EA4\u4E92-${safeDate}`);
+          const path = `Interactions/${safeDate}-${safeTitle}.md`;
           if (!app.vault.getAbstractFileByPath(path)) {
-            let content = TEMPLATE_INTERACTION.replace("{{title}}", safeTitle).replace(/{{date}}/g, i.date || "");
+            let content = TEMPLATE_INTERACTION.replace("{{title}}", safeTitle).replace(/{{date}}/g, safeDate);
+            content = appendSection(content, "## \u6458\u8981\uFF08\u6309\u4EBA\uFF09", i.summary);
+            content = appendSection(content, "## \u4E8B\u5B9E", i.facts);
             await app.vault.create(path, content);
             const file = app.vault.getAbstractFileByPath(path);
             await app.fileManager.processFrontMatter(file, (fm) => {
@@ -35884,6 +35983,30 @@ var PRMAIArchiver = ({ app, plugin }) => {
               fm.entropy_avg = i.entropy || 0;
               fm.depth_reason = i.depth_reason || "";
               fm.scene_type = i.scene_type || "";
+              if (i.relationship_delta)
+                fm.relationship_delta = i.relationship_delta;
+            });
+          }
+        }
+      }
+      if (auditData.newEndeavors) {
+        for (const e of auditData.newEndeavors) {
+          const safeTitle = sanitizeFileName(e.title, "\u5171\u540C\u4E8B\u9879");
+          const path = `Endeavors/${safeTitle}.md`;
+          if (!app.vault.getAbstractFileByPath(path)) {
+            let content = TEMPLATE_ENDEAVOR.replace("{{title}}", safeTitle);
+            content = appendSection(content, "## \u521D\u8877", e.description);
+            await app.vault.create(path, content);
+            const file = app.vault.getAbstractFileByPath(path);
+            await app.fileManager.processFrontMatter(file, (fm) => {
+              fm.status = e.status || "\u6D3B\u8DC3";
+              fm.participants = e.participants || [];
+              if (e.relationship_domains)
+                fm.relationship_domains = e.relationship_domains;
+              if (e.start_date)
+                fm.start_date = e.start_date;
+              if (e.end_date)
+                fm.end_date = e.end_date;
             });
           }
         }
@@ -36051,6 +36174,7 @@ var PRMMapPlugin = class extends import_obsidian2.Plugin {
 var PRMMapView = class extends import_obsidian2.ItemView {
   plugin;
   reactRoot = null;
+  refreshKey = 0;
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -36082,11 +36206,12 @@ var PRMMapView = class extends import_obsidian2.ItemView {
   renderReact() {
     if (this.reactRoot) {
       this.reactRoot.render(
-        /* @__PURE__ */ React2.createElement(PRMMapViewComponent, { app: this.app, plugin: this.plugin })
+        /* @__PURE__ */ React2.createElement(PRMMapViewComponent, { app: this.app, plugin: this.plugin, refreshKey: this.refreshKey })
       );
     }
   }
   refreshData() {
+    this.refreshKey += 1;
     this.renderReact();
   }
 };
@@ -36101,19 +36226,30 @@ var PRMMapSettingTab = class extends import_obsidian2.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "PRM \u4EBA\u8109\u5730\u56FE & AI \u5F52\u6863\u52A9\u7406 \u8BBE\u7F6E" });
     containerEl.createEl("h3", { text: "\u{1F916} AI \u5927\u6A21\u578B\u914D\u7F6E" });
-    new import_obsidian2.Setting(containerEl).setName("API Base URL").setDesc("\u5927\u6A21\u578B API \u5730\u5740\u3002OpenAI \u517C\u5BB9\u683C\u5F0F\uFF08\u5982 DeepSeek: https://api.deepseek.com/v1\uFF09").addText(
+    containerEl.createEl("p", {
+      text: "\u9690\u79C1\u63D0\u793A\uFF1AAI \u5F52\u6863\u4F1A\u628A\u60A8\u52FE\u9009\u7684\u65E5\u8BB0\u5185\u5BB9\u53D1\u9001\u5230\u4E0B\u65B9 API Base URL\u3002\u63D2\u4EF6\u4E0D\u4F1A\u628A API Key \u53D1\u9001\u7ED9\u4F5C\u8005\u670D\u52A1\u5668\uFF1B\u9AD8\u9690\u79C1\u5185\u5BB9\u5EFA\u8BAE\u4F7F\u7528 localhost \u672C\u5730\u6A21\u578B\u670D\u52A1\u3002",
+      cls: "setting-item-description"
+    });
+    new import_obsidian2.Setting(containerEl).setName("API Base URL").setDesc("OpenAI \u517C\u5BB9\u63A5\u53E3\u5730\u5740\u3002\u672C\u5730\u6A21\u578B\u53EF\u586B http://localhost:1234/v1 \u6216 http://127.0.0.1:11434/v1\uFF1B\u8FDC\u7A0B\u5730\u5740\u5EFA\u8BAE\u4F7F\u7528 HTTPS\u3002").addText(
       (text) => text.setPlaceholder("https://api.openai.com/v1").setValue(this.plugin.settings.apiBaseUrl).onChange(async (value) => {
         this.plugin.settings.apiBaseUrl = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("API Key").setDesc("\u60A8\u7684\u5927\u6A21\u578B API \u5BC6\u94A5\uFF08\u5B89\u5168\u4FDD\u5B58\u5728\u672C\u5730\uFF0C\u4E0D\u4F1A\u4E0A\u4F20\uFF09").addText((text) => {
+    new import_obsidian2.Setting(containerEl).setName("API Key").setDesc("\u60A8\u7684\u5927\u6A21\u578B API \u5BC6\u94A5\uFF0C\u4FDD\u5B58\u5728\u672C\u5730\u63D2\u4EF6\u6570\u636E\u4E2D\u3002\u672C\u5730 localhost \u6A21\u578B\u670D\u52A1\u901A\u5E38\u53EF\u7559\u7A7A\u3002").addText((text) => {
       text.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
         this.plugin.settings.apiKey = value.trim();
         await this.plugin.saveSettings();
       });
       text.inputEl.type = "password";
     });
+    new import_obsidian2.Setting(containerEl).setName("\u6E05\u9664 API Key").setDesc("\u7ACB\u5373\u4ECE\u672C\u5730\u63D2\u4EF6\u914D\u7F6E\u4E2D\u79FB\u9664\u5DF2\u4FDD\u5B58\u7684 API Key\u3002").addButton(
+      (button) => button.setButtonText("\u6E05\u9664").setWarning().onClick(async () => {
+        this.plugin.settings.apiKey = "";
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
     new import_obsidian2.Setting(containerEl).setName("\u6A21\u578B\u540D\u79F0").setDesc("\u4F7F\u7528\u7684\u6A21\u578B\uFF08\u5982 gpt-4o\u3001deepseek-chat\u3001gemini-pro \u7B49\uFF09").addText(
       (text) => text.setPlaceholder("gpt-4o").setValue(this.plugin.settings.model).onChange(async (value) => {
         this.plugin.settings.model = value.trim();

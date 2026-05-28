@@ -11,6 +11,7 @@ require("leaflet.markercluster");
 interface PRMMapViewComponentProps {
     app: App;
     plugin: PRMMapPlugin;
+    refreshKey: number;
 }
 
 interface PersonData {
@@ -51,7 +52,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
     }
 }
 
-const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
+const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin, refreshKey }) => {
     const [allPeople, setAllPeople] = React.useState<PersonData[]>([]);
     const [filteredPeople, setFilteredPeople] = React.useState<PersonData[]>([]);
     const [selectedLocation, setSelectedLocation] = React.useState<string | null>(null);
@@ -88,6 +89,7 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
     const mapRef = React.useRef<L.Map | null>(null);
     const markerClusterGroupRef = React.useRef<any>(null);
     const tileLayerRef = React.useRef<L.TileLayer | null>(null);
+    const resizeObserverRef = React.useRef<ResizeObserver | null>(null);
 
     // 1. 读取人物数据
     const loadPeopleData = React.useCallback(() => {
@@ -149,7 +151,18 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
 
     React.useEffect(() => {
         loadPeopleData();
-    }, [loadPeopleData]);
+    }, [loadPeopleData, refreshKey]);
+
+    React.useEffect(() => {
+        return () => {
+            resizeObserverRef.current?.disconnect();
+            resizeObserverRef.current = null;
+            markerClusterGroupRef.current = null;
+            tileLayerRef.current = null;
+            mapRef.current?.remove();
+            mapRef.current = null;
+        };
+    }, []);
 
     // 2. 多维属性过滤逻辑
     React.useEffect(() => {
@@ -224,6 +237,7 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin }) => {
                 mapRef.current?.invalidateSize();
             });
             resizeObserver.observe(mapContainerRef.current);
+            resizeObserverRef.current = resizeObserver;
         }
 
         const map = mapRef.current;
@@ -725,6 +739,57 @@ interface DailyNote {
     date: string;
 }
 
+const sanitizeFileName = (value: unknown, fallback: string): string => {
+    const cleaned = String(value || fallback)
+        .replace(/\[\[|\]\]/g, "")
+        .replace(/[\\/:*?"<>|]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    return (cleaned || fallback).slice(0, 100);
+};
+
+const extractJsonObject = (content: unknown): any => {
+    if (typeof content !== "string" || !content.trim()) {
+        throw new Error("AI 响应为空，未找到可解析的 JSON。");
+    }
+
+    const fenced = content.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
+    const candidate = fenced ? fenced[1] : content;
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) {
+        throw new Error("AI 响应中未找到 JSON 对象。");
+    }
+
+    return JSON.parse(candidate.slice(start, end + 1));
+};
+
+const isLocalApiBaseUrl = (apiBaseUrl: string): boolean => {
+    try {
+        const parsed = new URL(apiBaseUrl);
+        return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname);
+    } catch {
+        return false;
+    }
+};
+
+const isPlainHttpRemote = (apiBaseUrl: string): boolean => {
+    try {
+        const parsed = new URL(apiBaseUrl);
+        return parsed.protocol === "http:" && !isLocalApiBaseUrl(apiBaseUrl);
+    } catch {
+        return false;
+    }
+};
+
+const appendSection = (content: string, heading: string, text: unknown): string => {
+    const body = String(text || "").trim();
+    if (!body) return content;
+    return content.includes(`${heading}\n`)
+        ? content.replace(`${heading}\n`, `${heading}\n${body}\n`)
+        : `${content.trimEnd()}\n\n${heading}\n${body}\n`;
+};
+
 const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plugin }) => {
     const [dailyNotes, setDailyNotes] = React.useState<DailyNote[]>([]);
     const [selectedNotes, setSelectedNotes] = React.useState<TFile[]>([]);
@@ -766,10 +831,28 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
             return;
         }
 
-        if (!plugin.settings.apiKey) {
-            new Notice("错误：请先在插件设置中配置大模型 API Key！");
+        const apiBaseUrl = plugin.settings.apiBaseUrl.trim();
+        const isLocalApi = isLocalApiBaseUrl(apiBaseUrl);
+
+        if (!apiBaseUrl) {
+            new Notice("错误：请先在插件设置中配置 API Base URL！");
             return;
         }
+
+        if (!plugin.settings.apiKey && !isLocalApi) {
+            new Notice("错误：云端 API 需要配置 API Key。本地 localhost 接口可留空。");
+            return;
+        }
+
+        if (isPlainHttpRemote(apiBaseUrl)) {
+            const proceed = confirm(`当前 API Base URL 使用非 HTTPS 远程地址：\n${apiBaseUrl}\n\nAPI Key 和选中的日记内容可能以明文经过网络传输。仍要继续吗？`);
+            if (!proceed) return;
+        }
+
+        const privacyConfirmed = confirm(isLocalApi
+            ? `将把 ${selectedNotes.length} 篇日记发送到本机模型服务：\n${apiBaseUrl}\n\n请确认该本地服务不会转发到远程服务器。`
+            : `将把 ${selectedNotes.length} 篇日记内容发送到以下 AI API 服务：\n${apiBaseUrl}\n\n插件不会把 API Key 发送给作者服务器，但该 API 服务商会收到请求内容。高隐私数据建议改用本地模型服务。`);
+        if (!privacyConfirmed) return;
 
         setLoading(true);
         try {
@@ -779,17 +862,20 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                 combinedContent += `\n\n--- 日记: ${file.basename} ---\n` + content;
             }
 
-            const url = plugin.settings.apiBaseUrl.endsWith("/chat/completions") 
-                ? plugin.settings.apiBaseUrl 
-                : plugin.settings.apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+            const url = apiBaseUrl.endsWith("/chat/completions") 
+                ? apiBaseUrl 
+                : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json"
+            };
+            if (plugin.settings.apiKey) {
+                headers.Authorization = `Bearer ${plugin.settings.apiKey}`;
+            }
 
             const response = await requestUrl({
                 url: url,
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${plugin.settings.apiKey}`
-                },
+                headers,
                 body: JSON.stringify({
                     model: plugin.settings.model,
                     messages: [
@@ -804,11 +890,13 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                 throw new Error(response.text);
             }
 
-            const aiContent = response.json.choices[0].message.content;
-            const jsonMatch = aiContent.match(/```json\n([\s\S]*?)\n```/);
-            const jsonString = jsonMatch ? jsonMatch[1] : aiContent;
-            
-            setAuditData(JSON.parse(jsonString));
+            const aiContent = response.json?.choices?.[0]?.message?.content;
+            const parsed = extractJsonObject(aiContent);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                throw new Error("AI 响应 JSON 不是有效的归档对象。");
+            }
+
+            setAuditData(parsed);
             new Notice("✨ AI 分析完成！请审核。");
 
         } catch (e) {
@@ -824,9 +912,11 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
             // Write new people
             if (auditData.newPeople) {
                 for (const p of auditData.newPeople) {
-                    const path = `People/${p.name}.md`;
+                    const safeName = sanitizeFileName(p.name, "未命名人物");
+                    const path = `People/${safeName}.md`;
                     if (!app.vault.getAbstractFileByPath(path)) {
-                        let content = TEMPLATE_PEOPLE.replace("{{title}}", p.name);
+                        let content = TEMPLATE_PEOPLE.replace("{{title}}", safeName);
+                        content = appendSection(content, "## 关系上下文", p.reason);
                         await app.vault.create(path, content);
                         const file = app.vault.getAbstractFileByPath(path) as TFile;
                         await app.fileManager.processFrontMatter(file, (fm) => {
@@ -842,13 +932,20 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
             // Update people
             if (auditData.updatePeople) {
                 for (const p of auditData.updatePeople) {
-                    const file = app.vault.getAbstractFileByPath(`People/${p.name}.md`);
-                    if (file instanceof TFile && p.updates) {
-                        await app.fileManager.processFrontMatter(file, (fm) => {
-                            for (const [k, v] of Object.entries(p.updates)) {
-                                fm[k] = v;
-                            }
-                        });
+                    const safeName = sanitizeFileName(p.name, "未命名人物");
+                    const file = app.vault.getAbstractFileByPath(`People/${safeName}.md`);
+                    if (file instanceof TFile) {
+                        if (p.updates) {
+                            await app.fileManager.processFrontMatter(file, (fm) => {
+                                for (const [k, v] of Object.entries(p.updates)) {
+                                    fm[k] = v;
+                                }
+                            });
+                        }
+                        if (p.bodyAppend) {
+                            const current = await app.vault.cachedRead(file);
+                            await app.vault.modify(file, appendSection(current, "## 重要观察", p.bodyAppend));
+                        }
                     }
                 }
             }
@@ -856,10 +953,13 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
             // Write interactions
             if (auditData.newInteractions) {
                 for (const i of auditData.newInteractions) {
-                    const safeTitle = i.title ? i.title.replace(new RegExp('[\\\\/:*?"<>|]', 'g'), "") : `交互-${i.date}`;
-                    const path = `Interactions/${i.date}-${safeTitle}.md`;
+                    const safeDate = sanitizeFileName(i.date, "未知日期");
+                    const safeTitle = sanitizeFileName(i.title, `交互-${safeDate}`);
+                    const path = `Interactions/${safeDate}-${safeTitle}.md`;
                     if (!app.vault.getAbstractFileByPath(path)) {
-                        let content = TEMPLATE_INTERACTION.replace("{{title}}", safeTitle).replace(/{{date}}/g, i.date || "");
+                        let content = TEMPLATE_INTERACTION.replace("{{title}}", safeTitle).replace(/{{date}}/g, safeDate);
+                        content = appendSection(content, "## 摘要（按人）", i.summary);
+                        content = appendSection(content, "## 事实", i.facts);
                         await app.vault.create(path, content);
                         const file = app.vault.getAbstractFileByPath(path) as TFile;
                         await app.fileManager.processFrontMatter(file, (fm) => {
@@ -867,6 +967,28 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                             fm.entropy_avg = i.entropy || 0;
                             fm.depth_reason = i.depth_reason || "";
                             fm.scene_type = i.scene_type || "";
+                            if (i.relationship_delta) fm.relationship_delta = i.relationship_delta;
+                        });
+                    }
+                }
+            }
+
+            // Write endeavors
+            if (auditData.newEndeavors) {
+                for (const e of auditData.newEndeavors) {
+                    const safeTitle = sanitizeFileName(e.title, "共同事项");
+                    const path = `Endeavors/${safeTitle}.md`;
+                    if (!app.vault.getAbstractFileByPath(path)) {
+                        let content = TEMPLATE_ENDEAVOR.replace("{{title}}", safeTitle);
+                        content = appendSection(content, "## 初衷", e.description);
+                        await app.vault.create(path, content);
+                        const file = app.vault.getAbstractFileByPath(path) as TFile;
+                        await app.fileManager.processFrontMatter(file, (fm) => {
+                            fm.status = e.status || "活跃";
+                            fm.participants = e.participants || [];
+                            if (e.relationship_domains) fm.relationship_domains = e.relationship_domains;
+                            if (e.start_date) fm.start_date = e.start_date;
+                            if (e.end_date) fm.end_date = e.end_date;
                         });
                     }
                 }

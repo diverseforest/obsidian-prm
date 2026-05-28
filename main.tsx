@@ -190,6 +190,7 @@ export default class PRMMapPlugin extends Plugin {
 class PRMMapView extends ItemView {
     plugin: PRMMapPlugin;
     reactRoot: Root | null = null;
+    refreshKey = 0;
 
     constructor(leaf: WorkspaceLeaf, plugin: PRMMapPlugin) {
         super(leaf);
@@ -231,13 +232,14 @@ class PRMMapView extends ItemView {
     renderReact() {
         if (this.reactRoot) {
             this.reactRoot.render(
-                <PRMMapViewComponent app={this.app} plugin={this.plugin} />
+                <PRMMapViewComponent app={this.app} plugin={this.plugin} refreshKey={this.refreshKey} />
             );
         }
     }
 
     refreshData() {
-        // 重新渲染 React 以触发内部数据重载
+        // 递增 key，让 React 组件内的数据加载 effect 明确重跑。
+        this.refreshKey += 1;
         this.renderReact();
     }
 }
@@ -262,10 +264,14 @@ class PRMMapSettingTab extends PluginSettingTab {
 
         // ---- AI 大模型配置区 ----
         containerEl.createEl("h3", { text: "🤖 AI 大模型配置" });
+        containerEl.createEl("p", {
+            text: "隐私提示：AI 归档会把您勾选的日记内容发送到下方 API Base URL。插件不会把 API Key 发送给作者服务器；高隐私内容建议使用 localhost 本地模型服务。",
+            cls: "setting-item-description"
+        });
 
         new Setting(containerEl)
             .setName("API Base URL")
-            .setDesc("大模型 API 地址。OpenAI 兼容格式（如 DeepSeek: https://api.deepseek.com/v1）")
+            .setDesc("OpenAI 兼容接口地址。本地模型可填 http://localhost:1234/v1 或 http://127.0.0.1:11434/v1；远程地址建议使用 HTTPS。")
             .addText(text => text
                 .setPlaceholder("https://api.openai.com/v1")
                 .setValue(this.plugin.settings.apiBaseUrl)
@@ -277,7 +283,7 @@ class PRMMapSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("API Key")
-            .setDesc("您的大模型 API 密钥（安全保存在本地，不会上传）")
+            .setDesc("您的大模型 API 密钥，保存在本地插件数据中。本地 localhost 模型服务通常可留空。")
             .addText(text => {
                 text.setPlaceholder("sk-...")
                     .setValue(this.plugin.settings.apiKey)
@@ -287,6 +293,19 @@ class PRMMapSettingTab extends PluginSettingTab {
                     });
                 text.inputEl.type = "password";
             });
+
+        new Setting(containerEl)
+            .setName("清除 API Key")
+            .setDesc("立即从本地插件配置中移除已保存的 API Key。")
+            .addButton(button => button
+                .setButtonText("清除")
+                .setWarning()
+                .onClick(async () => {
+                    this.plugin.settings.apiKey = "";
+                    await this.plugin.saveSettings();
+                    this.display();
+                })
+            );
 
         new Setting(containerEl)
             .setName("模型名称")

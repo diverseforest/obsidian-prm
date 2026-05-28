@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-prm-map",
+  "name": "obsidian-prm",
   "version": "1.0.0",
   "description": "Geographical visualization雷达地图 for Obsidian PRM",
   "main": "main.js",
