@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, ItemView, PluginSettingTab, App, Setting, debounce } from "obsidian";
+import { Plugin, WorkspaceLeaf, ItemView, PluginSettingTab, App, Setting, debounce, Notice, requestUrl } from "obsidian";
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
 import { PRMMapViewComponent } from "./view";
@@ -93,6 +93,21 @@ const DEFAULT_SETTINGS: PRMMapPluginSettings = {
     apiBaseUrl: "https://api.openai.com/v1",
     model: "gpt-4o",
     promptTemplate: DEFAULT_PROMPT_TEMPLATE,
+};
+
+const isLocalApiBaseUrl = (apiBaseUrl: string): boolean => {
+    try {
+        const parsed = new URL(apiBaseUrl);
+        return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname);
+    } catch {
+        return false;
+    }
+};
+
+const buildChatCompletionsUrl = (apiBaseUrl: string): string => {
+    return apiBaseUrl.endsWith("/chat/completions")
+        ? apiBaseUrl
+        : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
 };
 
 // ============================================================
@@ -256,6 +271,64 @@ class PRMMapSettingTab extends PluginSettingTab {
         this.plugin = plugin;
     }
 
+    async testApiConnection(): Promise<void> {
+        const apiBaseUrl = this.plugin.settings.apiBaseUrl.trim();
+        const model = this.plugin.settings.model.trim();
+        const isLocalApi = isLocalApiBaseUrl(apiBaseUrl);
+
+        if (!apiBaseUrl) {
+            new Notice("请先填写 API Base URL。");
+            return;
+        }
+        if (!apiBaseUrl.startsWith("http://") && !apiBaseUrl.startsWith("https://")) {
+            new Notice("API Base URL 必须以 http:// 或 https:// 开头。");
+            return;
+        }
+        if (!model) {
+            new Notice("请先填写模型名称。");
+            return;
+        }
+        if (!this.plugin.settings.apiKey && !isLocalApi) {
+            new Notice("云端 API 需要 API Key。本地 localhost 接口可留空。");
+            return;
+        }
+
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json"
+        };
+        if (this.plugin.settings.apiKey) {
+            headers.Authorization = `Bearer ${this.plugin.settings.apiKey}`;
+        }
+
+        try {
+            const response = await requestUrl({
+                url: buildChatCompletionsUrl(apiBaseUrl),
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        { role: "user", content: "ping" }
+                    ],
+                    max_tokens: 8,
+                    temperature: 0
+                })
+            });
+
+            if (response.status < 200 || response.status >= 300) {
+                new Notice(`API 测试失败：HTTP ${response.status}`);
+                console.error("PRM API test failed:", response.text);
+                return;
+            }
+
+            const content = response.json?.choices?.[0]?.message?.content?.trim();
+            new Notice(content ? `API 测试成功！模型回复：\n"${content}"` : "API 已连通，但响应格式可能不是标准 chat/completions。");
+        } catch (e) {
+            console.error("PRM API test error:", e);
+            new Notice("API 测试失败，请检查网络或配置：" + String(e));
+        }
+    }
+
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
@@ -316,6 +389,23 @@ class PRMMapSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.model = value.trim();
                     await this.plugin.saveSettings();
+                })
+            );
+
+        new Setting(containerEl)
+            .setName("测试 API 连接")
+            .setDesc("发送一条极短的 ping 消息到当前 API Base URL，不会读取或上传任何日记内容。")
+            .addButton(button => button
+                .setButtonText("测试连接")
+                .onClick(async () => {
+                    button.setDisabled(true);
+                    button.setButtonText("测试中...");
+                    try {
+                        await this.testApiConnection();
+                    } finally {
+                        button.setDisabled(false);
+                        button.setButtonText("测试连接");
+                    }
                 })
             );
 

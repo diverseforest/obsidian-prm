@@ -36110,6 +36110,17 @@ var DEFAULT_SETTINGS = {
   model: "gpt-4o",
   promptTemplate: DEFAULT_PROMPT_TEMPLATE
 };
+var isLocalApiBaseUrl2 = (apiBaseUrl) => {
+  try {
+    const parsed = new URL(apiBaseUrl);
+    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+var buildChatCompletionsUrl = (apiBaseUrl) => {
+  return apiBaseUrl.endsWith("/chat/completions") ? apiBaseUrl : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
+};
 var PRMMapPlugin = class extends import_obsidian2.Plugin {
   settings = DEFAULT_SETTINGS;
   async onload() {
@@ -36221,6 +36232,59 @@ var PRMMapSettingTab = class extends import_obsidian2.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
+  async testApiConnection() {
+    const apiBaseUrl = this.plugin.settings.apiBaseUrl.trim();
+    const model = this.plugin.settings.model.trim();
+    const isLocalApi = isLocalApiBaseUrl2(apiBaseUrl);
+    if (!apiBaseUrl) {
+      new import_obsidian2.Notice("\u8BF7\u5148\u586B\u5199 API Base URL\u3002");
+      return;
+    }
+    if (!apiBaseUrl.startsWith("http://") && !apiBaseUrl.startsWith("https://")) {
+      new import_obsidian2.Notice("API Base URL \u5FC5\u987B\u4EE5 http:// \u6216 https:// \u5F00\u5934\u3002");
+      return;
+    }
+    if (!model) {
+      new import_obsidian2.Notice("\u8BF7\u5148\u586B\u5199\u6A21\u578B\u540D\u79F0\u3002");
+      return;
+    }
+    if (!this.plugin.settings.apiKey && !isLocalApi) {
+      new import_obsidian2.Notice("\u4E91\u7AEF API \u9700\u8981 API Key\u3002\u672C\u5730 localhost \u63A5\u53E3\u53EF\u7559\u7A7A\u3002");
+      return;
+    }
+    const headers = {
+      "Content-Type": "application/json"
+    };
+    if (this.plugin.settings.apiKey) {
+      headers.Authorization = `Bearer ${this.plugin.settings.apiKey}`;
+    }
+    try {
+      const response = await (0, import_obsidian2.requestUrl)({
+        url: buildChatCompletionsUrl(apiBaseUrl),
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "user", content: "ping" }
+          ],
+          max_tokens: 8,
+          temperature: 0
+        })
+      });
+      if (response.status < 200 || response.status >= 300) {
+        new import_obsidian2.Notice(`API \u6D4B\u8BD5\u5931\u8D25\uFF1AHTTP ${response.status}`);
+        console.error("PRM API test failed:", response.text);
+        return;
+      }
+      const content = response.json?.choices?.[0]?.message?.content?.trim();
+      new import_obsidian2.Notice(content ? `API \u6D4B\u8BD5\u6210\u529F\uFF01\u6A21\u578B\u56DE\u590D\uFF1A
+"${content}"` : "API \u5DF2\u8FDE\u901A\uFF0C\u4F46\u54CD\u5E94\u683C\u5F0F\u53EF\u80FD\u4E0D\u662F\u6807\u51C6 chat/completions\u3002");
+    } catch (e) {
+      console.error("PRM API test error:", e);
+      new import_obsidian2.Notice("API \u6D4B\u8BD5\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u6216\u914D\u7F6E\uFF1A" + String(e));
+    }
+  }
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -36254,6 +36318,18 @@ var PRMMapSettingTab = class extends import_obsidian2.PluginSettingTab {
       (text) => text.setPlaceholder("gpt-4o").setValue(this.plugin.settings.model).onChange(async (value) => {
         this.plugin.settings.model = value.trim();
         await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("\u6D4B\u8BD5 API \u8FDE\u63A5").setDesc("\u53D1\u9001\u4E00\u6761\u6781\u77ED\u7684 ping \u6D88\u606F\u5230\u5F53\u524D API Base URL\uFF0C\u4E0D\u4F1A\u8BFB\u53D6\u6216\u4E0A\u4F20\u4EFB\u4F55\u65E5\u8BB0\u5185\u5BB9\u3002").addButton(
+      (button) => button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5").onClick(async () => {
+        button.setDisabled(true);
+        button.setButtonText("\u6D4B\u8BD5\u4E2D...");
+        try {
+          await this.testApiConnection();
+        } finally {
+          button.setDisabled(false);
+          button.setButtonText("\u6D4B\u8BD5\u8FDE\u63A5");
+        }
       })
     );
     new import_obsidian2.Setting(containerEl).setName("\u7CFB\u7EDF\u6307\u4EE4 Prompt \u6A21\u677F").setDesc("AI \u5F52\u6863\u65F6\u4F7F\u7528\u7684 System Prompt\uFF08\u5DF2\u5185\u7F6E\u9ED8\u8BA4\u6A21\u677F\uFF0C\u53EF\u81EA\u5B9A\u4E49\uFF09").addTextArea((text) => {
