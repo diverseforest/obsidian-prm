@@ -1,4 +1,4 @@
-import { App, TFile, TFolder, requestUrl, Notice } from "obsidian";
+import { App, TFile, TFolder, requestUrl, Notice, Modal } from "obsidian";
 import * as React from "react";
 import { resolveCoordinates } from "./utils";
 import PRMMapPlugin from "./main";
@@ -52,7 +52,54 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
     }
 }
 
+class PRMConfirmModal extends Modal {
+    private resolved = false;
+
+    constructor(
+        app: App,
+        private title: string,
+        private message: string,
+        private resolve: (value: boolean) => void
+    ) {
+        super(app);
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h3", { text: this.title });
+        contentEl.createEl("p", { text: this.message });
+
+        const actions = contentEl.createDiv({ cls: "prm-confirm-actions" });
+        const cancelButton = actions.createEl("button", { text: "取消", cls: "mod-cta" });
+        const confirmButton = actions.createEl("button", { text: "继续", cls: "mod-warning" });
+
+        cancelButton.onclick = () => this.finish(false);
+        confirmButton.onclick = () => this.finish(true);
+    }
+
+    onClose() {
+        if (!this.resolved) {
+            this.finish(false);
+        }
+    }
+
+    private finish(value: boolean) {
+        if (this.resolved) return;
+        this.resolved = true;
+        this.resolve(value);
+        this.close();
+    }
+}
+
+const confirmWithModal = (app: App, title: string, message: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+        new PRMConfirmModal(app, title, message, resolve).open();
+    });
+};
+
 const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin, refreshKey }) => {
+
     const [allPeople, setAllPeople] = React.useState<PersonData[]>([]);
     const [filteredPeople, setFilteredPeople] = React.useState<PersonData[]>([]);
     const [selectedLocation, setSelectedLocation] = React.useState<string | null>(null);
@@ -422,7 +469,11 @@ const PRMMapApp: React.FC<PRMMapViewComponentProps> = ({ app, plugin, refreshKey
     }
 
     return (
-        <div className="prm-map-layout">
+        <div 
+            className="prm-map-layout" 
+            onKeyDown={(e) => e.stopPropagation()} 
+            onKeyUp={(e) => e.stopPropagation()}
+        >
             <div className="prm-map-wrapper" style={{ display: activeTab === "radar" ? "block" : "none" }}>
                 <div id="prm-leaflet-map" ref={mapContainerRef}></div>
                 
@@ -764,6 +815,25 @@ const extractJsonObject = (content: unknown): any => {
     return JSON.parse(candidate.slice(start, end + 1));
 };
 
+/**
+ * 从 AI 回复中提取 JSON 之外的文字说明部分。
+ * AI 被要求先输出解释文字，再输出 ```json ... ``` 块。
+ */
+const extractExplanation = (content: unknown): string => {
+    if (typeof content !== "string" || !content.trim()) return "";
+    // 优先找 fenced code block 之前的文字
+    const fenceIndex = content.indexOf("```");
+    if (fenceIndex > 0) {
+        return content.slice(0, fenceIndex).trim();
+    }
+    // 退而求其次，找第一个 { 之前的文字
+    const braceIndex = content.indexOf("{");
+    if (braceIndex > 20) {
+        return content.slice(0, braceIndex).trim();
+    }
+    return "";
+};
+
 const isLocalApiBaseUrl = (apiBaseUrl: string): boolean => {
     try {
         const parsed = new URL(apiBaseUrl);
@@ -799,7 +869,8 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
     const [conversationHistory, setConversationHistory] = React.useState<any[]>([]);
     const [feedbackInput, setFeedbackInput] = React.useState("");
     const [feedbackLoading, setFeedbackLoading] = React.useState(false);
-    const [feedbackInstructions, setFeedbackInstructions] = React.useState<string[]>([]);
+    const [feedbackMessages, setFeedbackMessages] = React.useState<{role: 'user' | 'ai', content: string}[]>([]);
+    const [isComposingFeedback, setIsComposingFeedback] = React.useState(false);
 
     const runFeedbackAdjustment = async () => {
         const instruction = feedbackInput.trim();
@@ -815,7 +886,7 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
         try {
             const userFeedbackMsg = {
                 role: "user",
-                content: `请对上述提取的 JSON 方案进行如下修改反馈：\n"${instruction}"\n\n请分析用户的修改意图，对已有的 JSON 方案进行修改，并再次以完整的 JSON 格式输出修改后的方案。请务必保持与原格式一致，且只输出 JSON 字符，不要输出任何 MarkDown 标记或多余的解释。`
+                content: `请对上述提取的 JSON 方案进行如下修改反馈：\n"${instruction}"\n\n请按以下格式回复：\n1. 先用简短的中文说明你做了哪些调整（或者你有什么疑问需要我澄清）。\n2. 然后输出修改后的完整 JSON 方案，用 \`\`\`json ... \`\`\` 包裹。`
             };
             const nextHistory = [...conversationHistory, userFeedbackMsg];
 
@@ -852,9 +923,16 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
 
             setAuditData(parsed);
             setConversationHistory([...nextHistory, { role: "assistant", content: aiContent }]);
-            setFeedbackInstructions(prev => [...prev, instruction]);
+
+            // 提取 AI 的文字说明，存入对话记录
+            const explanation = extractExplanation(aiContent);
+            setFeedbackMessages(prev => [
+                ...prev,
+                { role: 'user', content: instruction },
+                { role: 'ai', content: explanation || '已根据您的指令调整方案。' }
+            ]);
             setFeedbackInput("");
-            new Notice("✨ AI 已根据您的反馈成功调整方案！");
+            new Notice("✨ AI 已根据您的反馈调整方案！");
 
         } catch (e) {
             console.error(e);
@@ -959,17 +1037,35 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
         }
 
         if (isPlainHttpRemote(apiBaseUrl)) {
-            const proceed = confirm(`当前 API Base URL 使用非 HTTPS 远程地址：\n${apiBaseUrl}\n\nAPI Key 和选中的日记内容可能以明文经过网络传输。仍要继续吗？`);
+            const proceed = await confirmWithModal(
+                app,
+                "非 HTTPS 远程 API",
+                `当前 API Base URL 使用非 HTTPS 远程地址：\n${apiBaseUrl}\n\nAPI Key 和选中的日记内容可能以明文经过网络传输。仍要继续吗？`
+            );
             if (!proceed) return;
         }
 
-        const privacyConfirmed = confirm(isLocalApi
-            ? `将把 ${selectedNotes.length} 篇日记发送到本机模型服务：\n${apiBaseUrl}\n\n请确认该本地服务不会转发到远程服务器。`
-            : `将把 ${selectedNotes.length} 篇日记内容发送到以下 AI API 服务：\n${apiBaseUrl}\n\n插件不会把 API Key 发送给作者服务器，但该 API 服务商会收到请求内容。高隐私数据建议改用本地模型服务。`);
+        const privacyConfirmed = await confirmWithModal(
+            app,
+            "确认发送到 AI 服务",
+            isLocalApi
+                ? `将把 ${selectedNotes.length} 篇日记发送到本机模型服务：\n${apiBaseUrl}\n\n请确认该本地服务不会转发到远程服务器。`
+                : `将把 ${selectedNotes.length} 篇日记内容发送到以下 AI API 服务：\n${apiBaseUrl}\n\n插件不会把 API Key 发送给作者服务器，但该 API 服务商会收到请求内容。高隐私数据建议改用本地模型服务。`
+        );
         if (!privacyConfirmed) return;
 
         setLoading(true);
         try {
+            let activePrompt = plugin.settings.promptTemplate;
+            const readmeFile = app.vault.getAbstractFileByPath("README.md");
+            if (readmeFile && (readmeFile as any).extension === "md") {
+                const readmeContent = await app.vault.cachedRead(readmeFile as any);
+                const match = readmeContent.match(/### AI 提取提示词配置[\s\S]*?```(?:text)?\n([\s\S]*?)```/);
+                if (match && match[1].trim()) {
+                    activePrompt = match[1].trim();
+                }
+            }
+
             let combinedContent = "";
             for (const file of selectedNotes) {
                 const content = await app.vault.cachedRead(file);
@@ -993,7 +1089,7 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                 body: JSON.stringify({
                     model: plugin.settings.model,
                     messages: [
-                        { role: "system", content: plugin.settings.promptTemplate },
+                        { role: "system", content: activePrompt },
                         { role: "user", content: "请分析以下日记内容，并严格按照 JSON 格式输出拟归档方案：\n" + combinedContent }
                     ],
                     temperature: 0.2
@@ -1011,12 +1107,12 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
             }
 
             const initialHistory = [
-                { role: "system", content: plugin.settings.promptTemplate },
+                { role: "system", content: activePrompt },
                 { role: "user", content: "请分析以下日记内容，并严格按照 JSON 格式输出拟归档方案：\n" + combinedContent }
             ];
             setAuditData(parsed);
             setConversationHistory([...initialHistory, { role: "assistant", content: aiContent }]);
-            setFeedbackInstructions([]);
+            setFeedbackMessages([]);
             new Notice("✨ AI 分析完成！请审核。");
 
         } catch (e) {
@@ -1133,7 +1229,7 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
 
     if (auditData) {
         return (
-            <div className="prm-audit-panel" onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+            <div className="prm-audit-panel">
                 <div className="prm-audit-header">
                     <h3>🔍 AI 拟归档审核</h3>
                     <button className="prm-btn-secondary" onClick={() => setAuditData(null)}>放弃</button>
@@ -1348,13 +1444,14 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                 {/* 💬 让 AI 调整方案 (多轮对话反馈) */}
                 <div className="prm-audit-feedback-section">
                     <div className="prm-feedback-section-title">
-                        <span>💬 让 AI 调整方案 (多轮对话反馈)</span>
+                        <span>💬 与 AI 讨论方案</span>
                     </div>
-                    {feedbackInstructions.length > 0 && (
-                        <div className="prm-feedback-history-list">
-                            {feedbackInstructions.map((inst, idx) => (
-                                <div key={idx} className="prm-feedback-history-item">
-                                    <span className="prm-feedback-history-bullet">✓</span> 已执行：{inst}
+                    {feedbackMessages.length > 0 && (
+                        <div className="prm-feedback-chat-list">
+                            {feedbackMessages.map((msg, idx) => (
+                                <div key={idx} className={`prm-chat-bubble prm-chat-${msg.role}`}>
+                                    <div className="prm-chat-bubble-label">{msg.role === 'user' ? '🧑 你' : '🤖 AI'}</div>
+                                    <div className="prm-chat-bubble-content">{msg.content}</div>
                                 </div>
                             ))}
                         </div>
@@ -1364,13 +1461,20 @@ const PRMAIArchiver: React.FC<{ app: App, plugin: PRMMapPlugin }> = ({ app, plug
                             type="text" 
                             value={feedbackInput} 
                             onChange={(e) => setFeedbackInput(e.target.value)} 
-                            placeholder="输入修改指令（如：把陈静改为合作伙伴，添加李娜...）"
+                            placeholder="输入修改指令或回复 AI 的问题..."
                             disabled={feedbackLoading}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                            onCompositionStart={() => setIsComposingFeedback(true)}
+                            onCompositionEnd={() => setIsComposingFeedback(false)}
                             onKeyDown={(e) => {
-                                if (e.key === "Enter" && !feedbackLoading && feedbackInput.trim()) {
+                                e.stopPropagation();
+                                if (e.key === "Enter" && !isComposingFeedback && !feedbackLoading && feedbackInput.trim()) {
+                                    e.preventDefault();
                                     runFeedbackAdjustment();
                                 }
                             }}
+                            onKeyUp={(e) => e.stopPropagation()}
                         />
                         <button 
                             className="prm-btn-primary prm-btn-feedback-send" 

@@ -35292,6 +35292,43 @@ var ErrorBoundary = class extends React.Component {
     return this.props.children;
   }
 };
+var PRMConfirmModal = class extends import_obsidian.Modal {
+  constructor(app, title, message, resolve) {
+    super(app);
+    this.title = title;
+    this.message = message;
+    this.resolve = resolve;
+  }
+  resolved = false;
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: this.title });
+    contentEl.createEl("p", { text: this.message });
+    const actions = contentEl.createDiv({ cls: "prm-confirm-actions" });
+    const cancelButton = actions.createEl("button", { text: "\u53D6\u6D88", cls: "mod-cta" });
+    const confirmButton = actions.createEl("button", { text: "\u7EE7\u7EED", cls: "mod-warning" });
+    cancelButton.onclick = () => this.finish(false);
+    confirmButton.onclick = () => this.finish(true);
+  }
+  onClose() {
+    if (!this.resolved) {
+      this.finish(false);
+    }
+  }
+  finish(value) {
+    if (this.resolved)
+      return;
+    this.resolved = true;
+    this.resolve(value);
+    this.close();
+  }
+};
+var confirmWithModal = (app, title, message) => {
+  return new Promise((resolve) => {
+    new PRMConfirmModal(app, title, message, resolve).open();
+  });
+};
 var PRMMapApp = ({ app, plugin, refreshKey }) => {
   const [allPeople, setAllPeople] = React.useState([]);
   const [filteredPeople, setFilteredPeople] = React.useState([]);
@@ -35606,26 +35643,35 @@ var PRMMapApp = ({ app, plugin, refreshKey }) => {
   if (!isInitialized) {
     return /* @__PURE__ */ React.createElement(OneClickSetup, { app, onComplete: () => setIsInitialized(true) });
   }
-  return /* @__PURE__ */ React.createElement("div", { className: "prm-map-layout" }, /* @__PURE__ */ React.createElement("div", { className: "prm-map-wrapper", style: { display: activeTab === "radar" ? "block" : "none" } }, /* @__PURE__ */ React.createElement("div", { id: "prm-leaflet-map", ref: mapContainerRef }), pickingFor && /* @__PURE__ */ React.createElement("div", { className: "prm-picking-overlay" }, "\u6B63\u5728\u4E3A ", /* @__PURE__ */ React.createElement("strong", null, pickingFor.name), " \u62FE\u53D6\u5750\u6807\u3002\u8BF7\u70B9\u51FB\u5730\u56FE\u5177\u4F53\u4F4D\u7F6E\uFF0C\u6216 ", /* @__PURE__ */ React.createElement("button", { onClick: () => setPickingFor(null) }, "\u53D6\u6D88"))), /* @__PURE__ */ React.createElement("div", { className: "prm-sidebar", style: { width: "100%", maxWidth: activeTab === "ai" ? "100%" : "350px", transition: "max-width 0.3s ease" } }, /* @__PURE__ */ React.createElement("div", { className: "prm-tab-switcher" }, /* @__PURE__ */ React.createElement("button", { className: `prm-tab-btn ${activeTab === "radar" ? "active" : ""}`, onClick: () => setActiveTab("radar") }, "\u{1F4CD} \u5730\u7406\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("button", { className: `prm-tab-btn ${activeTab === "ai" ? "active" : ""}`, onClick: () => setActiveTab("ai") }, "\u{1F916} AI \u5F52\u6863\u52A9\u7406")), activeTab === "ai" && /* @__PURE__ */ React.createElement(PRMAIArchiver, { app, plugin }), /* @__PURE__ */ React.createElement("div", { style: { display: activeTab === "radar" ? "flex" : "none", flexDirection: "column", height: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-card" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-title" }, "\u{1F4CD} \u4EBA\u8109\u6570\u636E\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-grid" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, uniqueContactCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F464} \u552F\u4E00\u8054\u7CFB\u4EBA")), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, totalLocationsCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F5FA}\uFE0F \u8F90\u5C04\u5206\u5E03\u70B9")))), /* @__PURE__ */ React.createElement("div", { className: "prm-filters-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u6D3B\u8DC3\u72B6\u6001"), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => setFilterStatus(e.target.value) }, statusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u5173\u7CFB\u57DF"), /* @__PURE__ */ React.createElement("select", { value: filterDomain, onChange: (e) => setFilterDomain(e.target.value) }, domainOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u8054\u7CFB\u7EF4\u62A4\u8B66\u544A"), /* @__PURE__ */ React.createElement("select", { value: filterContactWarning, onChange: (e) => setFilterContactWarning(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "\u5168\u90E8" }, "\u4E0D\u9650"), /* @__PURE__ */ React.createElement("option", { value: "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB"), /* @__PURE__ */ React.createElement("option", { value: "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB"))), selectedLocation && /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group prm-radius-filter" }, /* @__PURE__ */ React.createElement("label", null, "\u5DEE\u65C5\u96F7\u8FBE (\u8F90\u5C04\u8303\u56F4)"), /* @__PURE__ */ React.createElement("select", { value: filterRadius, onChange: (e) => setFilterRadius(Number(e.target.value)) }, radiusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt.value, value: opt.value }, opt.label))))), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-section-title" }, /* @__PURE__ */ React.createElement("span", null, selectedLocation ? `\u{1F4CD} \u4E2D\u5FC3: ${selectedLocation} ${filterRadius ? `(${filterRadius}km)` : ""}` : "\u{1F464} \u5168\u90E8\u8054\u7CFB\u4EBA"), selectedLocation && /* @__PURE__ */ React.createElement("button", { className: "prm-btn-reset", onClick: handleResetLocation }, "\u91CD\u7F6E")), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-scroll" }, (selectedLocation ? selectedPeople : filteredPeople).length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "prm-empty-state" }, "\u6CA1\u6709\u5339\u914D\u7684\u8054\u7CFB\u4EBA\u3002") : (selectedLocation ? selectedPeople : filteredPeople).map((person) => {
-    const isWarning = (() => {
-      if (!person.lastContact || person.lastContact === "\u672A\u8BB0\u5F55")
-        return false;
-      const diffDays = Math.ceil(Math.abs((/* @__PURE__ */ new Date()).getTime() - new Date(person.lastContact).getTime()) / (1e3 * 60 * 60 * 24));
-      return diffDays > 90;
-    })();
-    return /* @__PURE__ */ React.createElement("div", { key: person.path, className: `prm-person-card ${isWarning ? "prm-card-warning" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "prm-card-header" }, /* @__PURE__ */ React.createElement(
-      "a",
-      {
-        className: "prm-card-name internal-link",
-        "data-href": person.path,
-        onClick: (e) => {
-          e.preventDefault();
-          openPersonFile(person.path);
-        }
-      },
-      person.name
-    ), /* @__PURE__ */ React.createElement("span", { className: `prm-badge prm-status-${person.status}` }, person.status)), /* @__PURE__ */ React.createElement("div", { className: "prm-card-body" }, /* @__PURE__ */ React.createElement("div", { className: "prm-card-row" }, /* @__PURE__ */ React.createElement("span", { className: "prm-card-label" }, "\u4F4D\u7F6E\uFF1A"), /* @__PURE__ */ React.createElement("span", { className: "prm-card-val-cities" }, person.preciseLocation ? /* @__PURE__ */ React.createElement("span", { className: "prm-city-tag prm-tag-precise" }, "\u7CBE\u786E\u5750\u6807\u5DF2\u8BBE") : null, person.cityList.map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "prm-city-tag", onClick: () => setSelectedLocation(c) }, c)))), /* @__PURE__ */ React.createElement("div", { className: "prm-card-row" }, /* @__PURE__ */ React.createElement("span", { className: "prm-card-label" }, "\u6700\u8FD1\uFF1A"), /* @__PURE__ */ React.createElement("span", { className: `prm-card-val ${isWarning ? "prm-text-danger" : ""}` }, person.lastContact, isWarning && /* @__PURE__ */ React.createElement("span", { className: "prm-warn-icon", title: "\u8D85\u8FC73\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u26A0\uFE0F"))), /* @__PURE__ */ React.createElement("div", { className: "prm-card-actions" }, /* @__PURE__ */ React.createElement("button", { className: "prm-action-btn", onClick: () => handleQuickLog(person) }, "\u2705 \u8BB0\u4ECA\u65E5\u8054\u7CFB"), /* @__PURE__ */ React.createElement("button", { className: "prm-action-btn", onClick: () => setPickingFor(person) }, "\u{1F4CC} \u624B\u5DE5\u62FE\u53D6\u5750\u6807"))));
-  }))))));
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: "prm-map-layout",
+      onKeyDown: (e) => e.stopPropagation(),
+      onKeyUp: (e) => e.stopPropagation()
+    },
+    /* @__PURE__ */ React.createElement("div", { className: "prm-map-wrapper", style: { display: activeTab === "radar" ? "block" : "none" } }, /* @__PURE__ */ React.createElement("div", { id: "prm-leaflet-map", ref: mapContainerRef }), pickingFor && /* @__PURE__ */ React.createElement("div", { className: "prm-picking-overlay" }, "\u6B63\u5728\u4E3A ", /* @__PURE__ */ React.createElement("strong", null, pickingFor.name), " \u62FE\u53D6\u5750\u6807\u3002\u8BF7\u70B9\u51FB\u5730\u56FE\u5177\u4F53\u4F4D\u7F6E\uFF0C\u6216 ", /* @__PURE__ */ React.createElement("button", { onClick: () => setPickingFor(null) }, "\u53D6\u6D88"))),
+    /* @__PURE__ */ React.createElement("div", { className: "prm-sidebar", style: { width: "100%", maxWidth: activeTab === "ai" ? "100%" : "350px", transition: "max-width 0.3s ease" } }, /* @__PURE__ */ React.createElement("div", { className: "prm-tab-switcher" }, /* @__PURE__ */ React.createElement("button", { className: `prm-tab-btn ${activeTab === "radar" ? "active" : ""}`, onClick: () => setActiveTab("radar") }, "\u{1F4CD} \u5730\u7406\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("button", { className: `prm-tab-btn ${activeTab === "ai" ? "active" : ""}`, onClick: () => setActiveTab("ai") }, "\u{1F916} AI \u5F52\u6863\u52A9\u7406")), activeTab === "ai" && /* @__PURE__ */ React.createElement(PRMAIArchiver, { app, plugin }), /* @__PURE__ */ React.createElement("div", { style: { display: activeTab === "radar" ? "flex" : "none", flexDirection: "column", height: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-card" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-title" }, "\u{1F4CD} \u4EBA\u8109\u6570\u636E\u96F7\u8FBE"), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-grid" }, /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, uniqueContactCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F464} \u552F\u4E00\u8054\u7CFB\u4EBA")), /* @__PURE__ */ React.createElement("div", { className: "prm-dashboard-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-dash-value" }, totalLocationsCount), /* @__PURE__ */ React.createElement("span", { className: "prm-dash-label" }, "\u{1F5FA}\uFE0F \u8F90\u5C04\u5206\u5E03\u70B9")))), /* @__PURE__ */ React.createElement("div", { className: "prm-filters-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u6D3B\u8DC3\u72B6\u6001"), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => setFilterStatus(e.target.value) }, statusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u5173\u7CFB\u57DF"), /* @__PURE__ */ React.createElement("select", { value: filterDomain, onChange: (e) => setFilterDomain(e.target.value) }, domainOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt, value: opt }, opt)))), /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group" }, /* @__PURE__ */ React.createElement("label", null, "\u8054\u7CFB\u7EF4\u62A4\u8B66\u544A"), /* @__PURE__ */ React.createElement("select", { value: filterContactWarning, onChange: (e) => setFilterContactWarning(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "\u5168\u90E8" }, "\u4E0D\u9650"), /* @__PURE__ */ React.createElement("option", { value: "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D851\u4E2A\u6708\u672A\u8054\u7CFB"), /* @__PURE__ */ React.createElement("option", { value: "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u8D853\u4E2A\u6708\u672A\u8054\u7CFB"))), selectedLocation && /* @__PURE__ */ React.createElement("div", { className: "prm-filter-group prm-radius-filter" }, /* @__PURE__ */ React.createElement("label", null, "\u5DEE\u65C5\u96F7\u8FBE (\u8F90\u5C04\u8303\u56F4)"), /* @__PURE__ */ React.createElement("select", { value: filterRadius, onChange: (e) => setFilterRadius(Number(e.target.value)) }, radiusOptions.map((opt) => /* @__PURE__ */ React.createElement("option", { key: opt.value, value: opt.value }, opt.label))))), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-section-title" }, /* @__PURE__ */ React.createElement("span", null, selectedLocation ? `\u{1F4CD} \u4E2D\u5FC3: ${selectedLocation} ${filterRadius ? `(${filterRadius}km)` : ""}` : "\u{1F464} \u5168\u90E8\u8054\u7CFB\u4EBA"), selectedLocation && /* @__PURE__ */ React.createElement("button", { className: "prm-btn-reset", onClick: handleResetLocation }, "\u91CD\u7F6E")), /* @__PURE__ */ React.createElement("div", { className: "prm-cards-scroll" }, (selectedLocation ? selectedPeople : filteredPeople).length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "prm-empty-state" }, "\u6CA1\u6709\u5339\u914D\u7684\u8054\u7CFB\u4EBA\u3002") : (selectedLocation ? selectedPeople : filteredPeople).map((person) => {
+      const isWarning = (() => {
+        if (!person.lastContact || person.lastContact === "\u672A\u8BB0\u5F55")
+          return false;
+        const diffDays = Math.ceil(Math.abs((/* @__PURE__ */ new Date()).getTime() - new Date(person.lastContact).getTime()) / (1e3 * 60 * 60 * 24));
+        return diffDays > 90;
+      })();
+      return /* @__PURE__ */ React.createElement("div", { key: person.path, className: `prm-person-card ${isWarning ? "prm-card-warning" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "prm-card-header" }, /* @__PURE__ */ React.createElement(
+        "a",
+        {
+          className: "prm-card-name internal-link",
+          "data-href": person.path,
+          onClick: (e) => {
+            e.preventDefault();
+            openPersonFile(person.path);
+          }
+        },
+        person.name
+      ), /* @__PURE__ */ React.createElement("span", { className: `prm-badge prm-status-${person.status}` }, person.status)), /* @__PURE__ */ React.createElement("div", { className: "prm-card-body" }, /* @__PURE__ */ React.createElement("div", { className: "prm-card-row" }, /* @__PURE__ */ React.createElement("span", { className: "prm-card-label" }, "\u4F4D\u7F6E\uFF1A"), /* @__PURE__ */ React.createElement("span", { className: "prm-card-val-cities" }, person.preciseLocation ? /* @__PURE__ */ React.createElement("span", { className: "prm-city-tag prm-tag-precise" }, "\u7CBE\u786E\u5750\u6807\u5DF2\u8BBE") : null, person.cityList.map((c) => /* @__PURE__ */ React.createElement("span", { key: c, className: "prm-city-tag", onClick: () => setSelectedLocation(c) }, c)))), /* @__PURE__ */ React.createElement("div", { className: "prm-card-row" }, /* @__PURE__ */ React.createElement("span", { className: "prm-card-label" }, "\u6700\u8FD1\uFF1A"), /* @__PURE__ */ React.createElement("span", { className: `prm-card-val ${isWarning ? "prm-text-danger" : ""}` }, person.lastContact, isWarning && /* @__PURE__ */ React.createElement("span", { className: "prm-warn-icon", title: "\u8D85\u8FC73\u4E2A\u6708\u672A\u8054\u7CFB" }, "\u26A0\uFE0F"))), /* @__PURE__ */ React.createElement("div", { className: "prm-card-actions" }, /* @__PURE__ */ React.createElement("button", { className: "prm-action-btn", onClick: () => handleQuickLog(person) }, "\u2705 \u8BB0\u4ECA\u65E5\u8054\u7CFB"), /* @__PURE__ */ React.createElement("button", { className: "prm-action-btn", onClick: () => setPickingFor(person) }, "\u{1F4CC} \u624B\u5DE5\u62FE\u53D6\u5750\u6807"))));
+    })))))
+  );
 };
 var TEMPLATE_PEOPLE = `---
 categories:
@@ -35787,6 +35833,19 @@ var extractJsonObject = (content) => {
   }
   return JSON.parse(candidate.slice(start, end + 1));
 };
+var extractExplanation = (content) => {
+  if (typeof content !== "string" || !content.trim())
+    return "";
+  const fenceIndex = content.indexOf("```");
+  if (fenceIndex > 0) {
+    return content.slice(0, fenceIndex).trim();
+  }
+  const braceIndex = content.indexOf("{");
+  if (braceIndex > 20) {
+    return content.slice(0, braceIndex).trim();
+  }
+  return "";
+};
 var isLocalApiBaseUrl = (apiBaseUrl) => {
   try {
     const parsed = new URL(apiBaseUrl);
@@ -35826,7 +35885,8 @@ var PRMAIArchiver = ({ app, plugin }) => {
   const [conversationHistory, setConversationHistory] = React.useState([]);
   const [feedbackInput, setFeedbackInput] = React.useState("");
   const [feedbackLoading, setFeedbackLoading] = React.useState(false);
-  const [feedbackInstructions, setFeedbackInstructions] = React.useState([]);
+  const [feedbackMessages, setFeedbackMessages] = React.useState([]);
+  const [isComposingFeedback, setIsComposingFeedback] = React.useState(false);
   const runFeedbackAdjustment = async () => {
     const instruction = feedbackInput.trim();
     if (!instruction)
@@ -35843,7 +35903,9 @@ var PRMAIArchiver = ({ app, plugin }) => {
         content: `\u8BF7\u5BF9\u4E0A\u8FF0\u63D0\u53D6\u7684 JSON \u65B9\u6848\u8FDB\u884C\u5982\u4E0B\u4FEE\u6539\u53CD\u9988\uFF1A
 "${instruction}"
 
-\u8BF7\u5206\u6790\u7528\u6237\u7684\u4FEE\u6539\u610F\u56FE\uFF0C\u5BF9\u5DF2\u6709\u7684 JSON \u65B9\u6848\u8FDB\u884C\u4FEE\u6539\uFF0C\u5E76\u518D\u6B21\u4EE5\u5B8C\u6574\u7684 JSON \u683C\u5F0F\u8F93\u51FA\u4FEE\u6539\u540E\u7684\u65B9\u6848\u3002\u8BF7\u52A1\u5FC5\u4FDD\u6301\u4E0E\u539F\u683C\u5F0F\u4E00\u81F4\uFF0C\u4E14\u53EA\u8F93\u51FA JSON \u5B57\u7B26\uFF0C\u4E0D\u8981\u8F93\u51FA\u4EFB\u4F55 MarkDown \u6807\u8BB0\u6216\u591A\u4F59\u7684\u89E3\u91CA\u3002`
+\u8BF7\u6309\u4EE5\u4E0B\u683C\u5F0F\u56DE\u590D\uFF1A
+1. \u5148\u7528\u7B80\u77ED\u7684\u4E2D\u6587\u8BF4\u660E\u4F60\u505A\u4E86\u54EA\u4E9B\u8C03\u6574\uFF08\u6216\u8005\u4F60\u6709\u4EC0\u4E48\u7591\u95EE\u9700\u8981\u6211\u6F84\u6E05\uFF09\u3002
+2. \u7136\u540E\u8F93\u51FA\u4FEE\u6539\u540E\u7684\u5B8C\u6574 JSON \u65B9\u6848\uFF0C\u7528 \`\`\`json ... \`\`\` \u5305\u88F9\u3002`
       };
       const nextHistory = [...conversationHistory, userFeedbackMsg];
       const url = apiBaseUrl.endsWith("/chat/completions") ? apiBaseUrl : apiBaseUrl.replace(/\/$/, "") + "/chat/completions";
@@ -35873,9 +35935,14 @@ var PRMAIArchiver = ({ app, plugin }) => {
       }
       setAuditData(parsed);
       setConversationHistory([...nextHistory, { role: "assistant", content: aiContent }]);
-      setFeedbackInstructions((prev) => [...prev, instruction]);
+      const explanation = extractExplanation(aiContent);
+      setFeedbackMessages((prev) => [
+        ...prev,
+        { role: "user", content: instruction },
+        { role: "ai", content: explanation || "\u5DF2\u6839\u636E\u60A8\u7684\u6307\u4EE4\u8C03\u6574\u65B9\u6848\u3002" }
+      ]);
       setFeedbackInput("");
-      new import_obsidian.Notice("\u2728 AI \u5DF2\u6839\u636E\u60A8\u7684\u53CD\u9988\u6210\u529F\u8C03\u6574\u65B9\u6848\uFF01");
+      new import_obsidian.Notice("\u2728 AI \u5DF2\u6839\u636E\u60A8\u7684\u53CD\u9988\u8C03\u6574\u65B9\u6848\uFF01");
     } catch (e) {
       console.error(e);
       new import_obsidian.Notice("AI \u8C03\u6574\u5931\u8D25\uFF0C\u8BF7\u5C1D\u8BD5\u91CD\u65B0\u63CF\u8FF0\u60A8\u7684\u4FEE\u6539\u6307\u4EE4: " + String(e));
@@ -35966,24 +36033,41 @@ var PRMAIArchiver = ({ app, plugin }) => {
       return;
     }
     if (isPlainHttpRemote(apiBaseUrl)) {
-      const proceed = confirm(`\u5F53\u524D API Base URL \u4F7F\u7528\u975E HTTPS \u8FDC\u7A0B\u5730\u5740\uFF1A
+      const proceed = await confirmWithModal(
+        app,
+        "\u975E HTTPS \u8FDC\u7A0B API",
+        `\u5F53\u524D API Base URL \u4F7F\u7528\u975E HTTPS \u8FDC\u7A0B\u5730\u5740\uFF1A
 ${apiBaseUrl}
 
-API Key \u548C\u9009\u4E2D\u7684\u65E5\u8BB0\u5185\u5BB9\u53EF\u80FD\u4EE5\u660E\u6587\u7ECF\u8FC7\u7F51\u7EDC\u4F20\u8F93\u3002\u4ECD\u8981\u7EE7\u7EED\u5417\uFF1F`);
+API Key \u548C\u9009\u4E2D\u7684\u65E5\u8BB0\u5185\u5BB9\u53EF\u80FD\u4EE5\u660E\u6587\u7ECF\u8FC7\u7F51\u7EDC\u4F20\u8F93\u3002\u4ECD\u8981\u7EE7\u7EED\u5417\uFF1F`
+      );
       if (!proceed)
         return;
     }
-    const privacyConfirmed = confirm(isLocalApi ? `\u5C06\u628A ${selectedNotes.length} \u7BC7\u65E5\u8BB0\u53D1\u9001\u5230\u672C\u673A\u6A21\u578B\u670D\u52A1\uFF1A
+    const privacyConfirmed = await confirmWithModal(
+      app,
+      "\u786E\u8BA4\u53D1\u9001\u5230 AI \u670D\u52A1",
+      isLocalApi ? `\u5C06\u628A ${selectedNotes.length} \u7BC7\u65E5\u8BB0\u53D1\u9001\u5230\u672C\u673A\u6A21\u578B\u670D\u52A1\uFF1A
 ${apiBaseUrl}
 
 \u8BF7\u786E\u8BA4\u8BE5\u672C\u5730\u670D\u52A1\u4E0D\u4F1A\u8F6C\u53D1\u5230\u8FDC\u7A0B\u670D\u52A1\u5668\u3002` : `\u5C06\u628A ${selectedNotes.length} \u7BC7\u65E5\u8BB0\u5185\u5BB9\u53D1\u9001\u5230\u4EE5\u4E0B AI API \u670D\u52A1\uFF1A
 ${apiBaseUrl}
 
-\u63D2\u4EF6\u4E0D\u4F1A\u628A API Key \u53D1\u9001\u7ED9\u4F5C\u8005\u670D\u52A1\u5668\uFF0C\u4F46\u8BE5 API \u670D\u52A1\u5546\u4F1A\u6536\u5230\u8BF7\u6C42\u5185\u5BB9\u3002\u9AD8\u9690\u79C1\u6570\u636E\u5EFA\u8BAE\u6539\u7528\u672C\u5730\u6A21\u578B\u670D\u52A1\u3002`);
+\u63D2\u4EF6\u4E0D\u4F1A\u628A API Key \u53D1\u9001\u7ED9\u4F5C\u8005\u670D\u52A1\u5668\uFF0C\u4F46\u8BE5 API \u670D\u52A1\u5546\u4F1A\u6536\u5230\u8BF7\u6C42\u5185\u5BB9\u3002\u9AD8\u9690\u79C1\u6570\u636E\u5EFA\u8BAE\u6539\u7528\u672C\u5730\u6A21\u578B\u670D\u52A1\u3002`
+    );
     if (!privacyConfirmed)
       return;
     setLoading(true);
     try {
+      let activePrompt = plugin.settings.promptTemplate;
+      const readmeFile = app.vault.getAbstractFileByPath("README.md");
+      if (readmeFile && readmeFile.extension === "md") {
+        const readmeContent = await app.vault.cachedRead(readmeFile);
+        const match = readmeContent.match(/### AI 提取提示词配置[\s\S]*?```(?:text)?\n([\s\S]*?)```/);
+        if (match && match[1].trim()) {
+          activePrompt = match[1].trim();
+        }
+      }
       let combinedContent = "";
       for (const file of selectedNotes) {
         const content = await app.vault.cachedRead(file);
@@ -36006,7 +36090,7 @@ ${apiBaseUrl}
         body: JSON.stringify({
           model: plugin.settings.model,
           messages: [
-            { role: "system", content: plugin.settings.promptTemplate },
+            { role: "system", content: activePrompt },
             { role: "user", content: "\u8BF7\u5206\u6790\u4EE5\u4E0B\u65E5\u8BB0\u5185\u5BB9\uFF0C\u5E76\u4E25\u683C\u6309\u7167 JSON \u683C\u5F0F\u8F93\u51FA\u62DF\u5F52\u6863\u65B9\u6848\uFF1A\n" + combinedContent }
           ],
           temperature: 0.2
@@ -36021,12 +36105,12 @@ ${apiBaseUrl}
         throw new Error("AI \u54CD\u5E94 JSON \u4E0D\u662F\u6709\u6548\u7684\u5F52\u6863\u5BF9\u8C61\u3002");
       }
       const initialHistory = [
-        { role: "system", content: plugin.settings.promptTemplate },
+        { role: "system", content: activePrompt },
         { role: "user", content: "\u8BF7\u5206\u6790\u4EE5\u4E0B\u65E5\u8BB0\u5185\u5BB9\uFF0C\u5E76\u4E25\u683C\u6309\u7167 JSON \u683C\u5F0F\u8F93\u51FA\u62DF\u5F52\u6863\u65B9\u6848\uFF1A\n" + combinedContent }
       ];
       setAuditData(parsed);
       setConversationHistory([...initialHistory, { role: "assistant", content: aiContent }]);
-      setFeedbackInstructions([]);
+      setFeedbackMessages([]);
       new import_obsidian.Notice("\u2728 AI \u5206\u6790\u5B8C\u6210\uFF01\u8BF7\u5BA1\u6838\u3002");
     } catch (e) {
       console.error(e);
@@ -36133,7 +36217,7 @@ ${apiBaseUrl}
     setLoading(false);
   };
   if (auditData) {
-    return /* @__PURE__ */ React.createElement("div", { className: "prm-audit-panel", onKeyDown: (e) => e.stopPropagation(), onKeyUp: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-header" }, /* @__PURE__ */ React.createElement("h3", null, "\u{1F50D} AI \u62DF\u5F52\u6863\u5BA1\u6838"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-secondary", onClick: () => setAuditData(null) }, "\u653E\u5F03")), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-scroll" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-header" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u{1F464} \u62DF\u65B0\u5EFA\u4EBA\u7269 (", auditData.newPeople?.length || 0, ")"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini prm-btn-add", onClick: () => handleAddItem("newPeople") }, "\u2795 \u6DFB\u52A0")), auditData.newPeople?.map((p, idx) => {
+    return /* @__PURE__ */ React.createElement("div", { className: "prm-audit-panel" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-header" }, /* @__PURE__ */ React.createElement("h3", null, "\u{1F50D} AI \u62DF\u5F52\u6863\u5BA1\u6838"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-secondary", onClick: () => setAuditData(null) }, "\u653E\u5F03")), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-scroll" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-header" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u{1F464} \u62DF\u65B0\u5EFA\u4EBA\u7269 (", auditData.newPeople?.length || 0, ")"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini prm-btn-add", onClick: () => handleAddItem("newPeople") }, "\u2795 \u6DFB\u52A0")), auditData.newPeople?.map((p, idx) => {
       const isEditing = editingItem && editingItem.type === "newPeople" && editingItem.index === idx;
       return /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, isEditing ? /* @__PURE__ */ React.createElement("div", { className: "prm-audit-edit-form" }, /* @__PURE__ */ React.createElement("input", { type: "text", value: editingItem.data.name, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } }), placeholder: "\u59D3\u540D" }), /* @__PURE__ */ React.createElement("input", { type: "text", value: editingItem.data.city, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, city: e.target.value } }), placeholder: "\u57CE\u5E02" }), /* @__PURE__ */ React.createElement("input", { type: "text", value: editingItem.data.primary_domain, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, primary_domain: e.target.value } }), placeholder: "\u4E3B\u5173\u7CFB\u57DF (\u5982 \u670B\u53CB\u3001\u5BA2\u6237)" }), /* @__PURE__ */ React.createElement("textarea", { value: editingItem.data.reason, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, reason: e.target.value } }), placeholder: "\u65B0\u5EFA\u539F\u56E0", rows: 2 }), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-edit-actions" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary", style: { width: "auto", padding: "4px 10px" }, onClick: handleSaveEdit }, "\u4FDD\u5B58"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-secondary", onClick: () => setEditingItem(null) }, "\u53D6\u6D88"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-card-top" }, /* @__PURE__ */ React.createElement("strong", null, p.name), " ", /* @__PURE__ */ React.createElement("span", { className: "prm-badge" }, p.status || "\u6D3B\u8DC3"), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-card-ops" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini-op", onClick: () => setEditingItem({ type: "newPeople", index: idx, data: { ...p } }) }, "\u270F\uFE0F"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini-op prm-btn-danger", onClick: () => handleDeleteItem("newPeople", idx) }, "\u{1F5D1}\uFE0F"))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-meta" }, "\u57CE\u5E02: ", p.city, " | \u6838\u5FC3\u5708: ", p.primary_domain), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, "\u{1F4AC} ", p.reason)));
     })), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-header" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u{1F504} \u62DF\u66F4\u65B0\u4EBA\u7269 (", auditData.updatePeople?.length || 0, ")"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini prm-btn-add", onClick: () => handleAddItem("updatePeople") }, "\u2795 \u6DFB\u52A0")), auditData.updatePeople?.map((p, idx) => {
@@ -36148,19 +36232,26 @@ ${apiBaseUrl}
     })), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group prm-audit-group-warning" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-header" }, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-group-title" }, "\u2753 \u9700\u8981\u60A8\u786E\u8BA4\u7684\u4FE1\u606F (", auditData.uncertain?.length || 0, ")"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini prm-btn-add", onClick: () => handleAddItem("uncertain") }, "\u2795 \u6DFB\u52A0")), auditData.uncertain?.map((u, idx) => {
       const isEditing = editingItem && editingItem.type === "uncertain" && editingItem.index === idx;
       return /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-audit-card" }, isEditing ? /* @__PURE__ */ React.createElement("div", { className: "prm-audit-edit-form" }, /* @__PURE__ */ React.createElement("input", { type: "text", value: editingItem.data.content, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, content: e.target.value } }), placeholder: "\u5B58\u7591\u5185\u5BB9" }), /* @__PURE__ */ React.createElement("textarea", { value: editingItem.data.reason, onChange: (e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, reason: e.target.value } }), placeholder: "\u5B58\u7591\u539F\u56E0", rows: 2 }), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-edit-actions" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-primary", style: { width: "auto", padding: "4px 10px" }, onClick: handleSaveEdit }, "\u4FDD\u5B58"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-secondary", onClick: () => setEditingItem(null) }, "\u53D6\u6D88"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "prm-audit-card-top" }, /* @__PURE__ */ React.createElement("strong", null, u.content), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-card-ops" }, /* @__PURE__ */ React.createElement("button", { className: "prm-btn-mini-op", onClick: () => setEditingItem({ type: "uncertain", index: idx, data: { ...u } }) }, "\u270F\uFE0F"), /* @__PURE__ */ React.createElement("button", { className: "prm-btn-danger prm-btn-mini-op", onClick: () => handleDeleteItem("uncertain", idx) }, "\u{1F5D1}\uFE0F"))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-reason" }, "\u{1F4A1} ", u.reason)));
-    }))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-feedback-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-section-title" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F4AC} \u8BA9 AI \u8C03\u6574\u65B9\u6848 (\u591A\u8F6E\u5BF9\u8BDD\u53CD\u9988)")), feedbackInstructions.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-history-list" }, feedbackInstructions.map((inst, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: "prm-feedback-history-item" }, /* @__PURE__ */ React.createElement("span", { className: "prm-feedback-history-bullet" }, "\u2713"), " \u5DF2\u6267\u884C\uFF1A", inst))), /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-input-row" }, /* @__PURE__ */ React.createElement(
+    }))), /* @__PURE__ */ React.createElement("div", { className: "prm-audit-feedback-section" }, /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-section-title" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F4AC} \u4E0E AI \u8BA8\u8BBA\u65B9\u6848")), feedbackMessages.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-chat-list" }, feedbackMessages.map((msg, idx) => /* @__PURE__ */ React.createElement("div", { key: idx, className: `prm-chat-bubble prm-chat-${msg.role}` }, /* @__PURE__ */ React.createElement("div", { className: "prm-chat-bubble-label" }, msg.role === "user" ? "\u{1F9D1} \u4F60" : "\u{1F916} AI"), /* @__PURE__ */ React.createElement("div", { className: "prm-chat-bubble-content" }, msg.content)))), /* @__PURE__ */ React.createElement("div", { className: "prm-feedback-input-row" }, /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "text",
         value: feedbackInput,
         onChange: (e) => setFeedbackInput(e.target.value),
-        placeholder: "\u8F93\u5165\u4FEE\u6539\u6307\u4EE4\uFF08\u5982\uFF1A\u628A\u9648\u9759\u6539\u4E3A\u5408\u4F5C\u4F19\u4F34\uFF0C\u6DFB\u52A0\u674E\u5A1C...\uFF09",
+        placeholder: "\u8F93\u5165\u4FEE\u6539\u6307\u4EE4\u6216\u56DE\u590D AI \u7684\u95EE\u9898...",
         disabled: feedbackLoading,
+        onMouseDown: (e) => e.stopPropagation(),
+        onClick: (e) => e.stopPropagation(),
+        onCompositionStart: () => setIsComposingFeedback(true),
+        onCompositionEnd: () => setIsComposingFeedback(false),
         onKeyDown: (e) => {
-          if (e.key === "Enter" && !feedbackLoading && feedbackInput.trim()) {
+          e.stopPropagation();
+          if (e.key === "Enter" && !isComposingFeedback && !feedbackLoading && feedbackInput.trim()) {
+            e.preventDefault();
             runFeedbackAdjustment();
           }
-        }
+        },
+        onKeyUp: (e) => e.stopPropagation()
       }
     ), /* @__PURE__ */ React.createElement(
       "button",
